@@ -1,0 +1,58 @@
+# Node modules
+node_modules/
+npm-debug.log
+
+# Fabric network artifacts
+fabric/network/organizations/
+fabric/network/channel-artifacts/
+fabric/network/system-genesis-block/
+fabric/network/*.tx
+fabric/network/*.block
+fabric/network/.env
+
+# Ethereum artifacts
+ethereum/artifacts/
+ethereum/cache/
+ethereum/.openzeppelin/
+ethereum/typechain/
+ethereum/coverage/
+ethereum/coverage.json
+
+# Environment variables
+.env
+.env.local
+
+# Build output
+dist/
+build/
+
+# IDE files
+.idea/
+.vscode/
+*.sublime-*
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Log files
+*.log
+logs/
+
+# Test coverage
+coverage/
+
+# Hardhat
+ethereum/.hardhat/
+
+# Truffle
+ethereum/.openzeppelin/
+
+# Binaries
+bin/
+**/bin/
+
+# Go vendor
+vendor/
