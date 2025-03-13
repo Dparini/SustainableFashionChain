@@ -3,12 +3,12 @@ node_modules/
 npm-debug.log
 
 # Fabric network artifacts
-fabric/network/organizations/
-fabric/network/channel-artifacts/
-fabric/network/system-genesis-block/
+SustainableFashionChain_backup/fabric/network/organizations/
+Fabric/network/channel-artifacts/
+Fabric/network/system-genesis-block/
 fabric/network/*.tx
 fabric/network/*.block
-fabric/network/.env
+Fabric/network/.env
 
 # Ethereum artifacts
 ethereum/artifacts/
@@ -55,4 +55,8 @@ bin/
 **/bin/
 
 # Go vendor
+<<<<<<< HEAD
 vendor/
+=======
+vendor/
+>>>>>>> 61cc74b19b456ba76d0ec05eaec50c220d3f3829

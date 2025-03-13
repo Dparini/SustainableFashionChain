@@ -1,0 +1,42 @@
+version: '3'
+services:
+  api:
+    build:
+      context: ./fabric/application
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./fabric/application:/app
+      - ./fabric/network/organizations:/app/organizations
+    environment:
+      - NODE_ENV=development
+    networks:
+      - sustainable-fashion-network
+
+  bridge:
+    build:
+      context: ./bridging
+    depends_on:
+      - api
+    volumes:
+      - ./bridging:/app
+      - ./ethereum/artifacts:/app/ethereum/artifacts
+      - ./fabric/network/organizations:/app/organizations
+    environment:
+      - NODE_ENV=development
+    networks:
+      - sustainable-fashion-network
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3001:80"
+    depends_on:
+      - api
+    networks:
+      - sustainable-fashion-network
+
+networks:
+  sustainable-fashion-network:
+    driver: bridge

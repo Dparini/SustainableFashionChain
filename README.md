@@ -96,4 +96,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Contact
 
+<<<<<<< HEAD
 For questions or collaboration opportunities, please reach out to [your contact information].
+=======
+For questions or collaboration opportunities, please reach out to [your contact information].
+>>>>>>> 61cc74b19b456ba76d0ec05eaec50c220d3f3829

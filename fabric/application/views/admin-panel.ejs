@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - SustainableFashionChain</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f5f8fa;
+        }
+        .navbar {
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        .sidebar {
+            background-color: #212529;
+            color: #fff;
+            height: calc(100vh - 56px);
+            position: fixed;
+            width: 250px;
+            overflow-y: auto;
+            transition: all 0.3s;
+        }
+        .main-content {
+            margin-left: 250px;
+            padding: 20px;
+            transition: all 0.3s;
+        }
+        .sidebar-collapsed .sidebar {
+            margin-left: -250px;
+        }
+        .sidebar-collapsed .main-content {
+            margin-left: 0;
+        }
+        .nav-item {
+            border-left: 3px solid transparent;
+        }
+        .nav-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .nav-item.active {
+            border-left-color: #198754;
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        .sidebar .nav-link {
+            color: #adb5bd;
+            padding: 10px 15px;
+        }
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            color: #fff;
+        }
+        .sidebar-header {
+            padding: 15px;
+            background-color: rgba(0, 0, 0, 0.2);
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+        .admin-card {
+            background-color: white;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .admin-card .card-header {
+            background-color: white;
+            font-weight: bold;
+            border-bottom: 1px solid #e4e6e8;
+            padding: 15px 20px;
+        }
+        .admin-card .card-body {
+            padding: 20px;
+        }
+        .menu-toggle {
+            cursor: pointer;
+        }
+        .status-badge {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .status-active { background-color: #28a745; }
+        .status-inactive { background-color: #dc3545; }
+        .status-pending { background-color: #ffc107; }
+        .summary-box {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            margin-bottom: 20px;
+            text-align: center;
+            border-left: 4px solid #198754;
+        }
+        .summary-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .summary-label {
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .nav-section {
+            padding: 10px 15px;
+            text-transform: uppercase;
+            font-size: 12px;
+            color: #6c757d;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">SustainableFashionChain</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-bell"></i>
+                            <span class="badge bg-danger rounded-pill">5</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="#">New user registration</a></li>
+                            <li><a class="dropdown-item" href="#">System update available</a></li>
+                            <li><a class="dropdown-item" href="#">Certificate expiring soon</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#">See all notifications</a></li>
+                        </ul>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle"></i> Admin
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i>Profile</a></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-gear me-2"></i>Settings</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-box-arrow-right me-2"></i>Logout</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="sidebar">
+        <div class="sidebar-header d-flex justify-content-between align-items-center">
+            <span>Admin Panel</span>
+            <span class="menu-toggle d-md-none">
+                <i class="bi bi-x-lg"></i>
+            </span>
+        </div>
+        <ul class="nav flex-column">
+            <li class="nav-item active">
+                <a class="nav-link active" href="#dashboard" data-bs-target="#dashboard">
+                    <i class="bi bi-speedometer2 me-2"></i> Dashboard
+                </a>
+            </li>
+            <div class="nav-section">User Management</div>
+            <li class="nav-item">
+                <a class="nav-link" href="#users" data-bs-target="#users">
+                    <i class="bi bi-people me-2"></i> Users
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#roles" data-bs-target="#roles">
+                    <i class="bi bi-shield-lock me-2"></i> Roles & Permissions
+                </a>
+            </li>
+            <div class="nav-section">Blockchain Management</div>
+            <li class="nav-item">
+                <a class="nav-link" href="#network" data-bs-target="#network">
+                    <i class="bi bi-diagram-3 me-2"></i> Network Status
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#chaincode" data-bs-target="#chaincode">
+                    <i class="bi bi-code-square me-2"></i> Chaincode Management
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#bridge" data-bs-target="#bridge">
+                    <i class="bi bi-link-45deg me-2"></i> Bridge Status
+                </a>
+            </li>
+            <div class="nav-section">Configuration</div>
+            <li class="nav-item">
+                <a class="nav-link" href="#certifications" data-bs-target="#certifications">
+                    <i class="bi bi-patch-check me-2"></i> Certification Types
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#api" data-bs-target="#api">
+                    <i class="bi bi-hdd-network me-2"></i> API Settings
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#system" data-bs-target="#system">
+                    <i class="bi bi-gear me-2"></i> System Settings
+                </a>
+            </li>
+            <div class="nav-section">Monitoring</div>
+            <li class="nav-item">
+                <a class="nav-link" href="#logs" data-bs-target="#logs">
+                    <i class="bi bi-journal-text me-2"></i> System Logs
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#audit" data-bs-target="#audit">
+                    <i class="bi bi-shield-check me-2"></i> Audit Trail
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#backup" data-bs-target="#backup">
+                    <i class="bi bi-archive me-2"></i> Backup & Restore
+                </a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="main-content">
+        <!-- Dashboard Tab -->
+        <div class="tab-pane fade show active" id="dashboard">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1>Admin Dashboard</h1>
+                <button class="btn btn-outline-secondary menu-toggle d-none d-md-block">
+                    <i class="bi bi-layout-sidebar-inset"></i>
+                </button>
+            </div>
+
+            <div class="row">
+                <div class="col-md-3">
+                    <div class="summary-box">
+                        <i class="bi bi-people fs-3 text-success"></i>
+                        <div class="summary-value">56</div>
+                        <div class="summary-label">Active Users</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="summary-box">
+                        <i class="bi bi-boxes fs-3 text-primary"></i>
+                        <div class="summary-value">248</div>
+                        <div class="summary-label">Total Records</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="summary-box">
+                        <i class="bi bi-hdd-network fs-3 text-warning"></i>
+                        <div class="summary-value">4/4</div>
+                        <div class="summary-label">Network Status</div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="summary-box">
+                        <i class="bi bi-shield-check fs-3 text-danger"></i>
+                        <div class="summary-value">100%</div>
+                        <div class="summary-label">System Health</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-6">
+                    <div class="admin-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>Recent Activity</span>
+                            <a href="#" class="btn btn-sm btn-outline-secondary">View All</a>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group">
+                                <a href="#" class="list-group-item list-group-item-action">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">New user registered</h6>
+                                            <small class="text-muted">User: john.doe@example.com</small>
+                                        </div>
+                                        <small class="text-muted">5 min ago</small>
+                                    </div>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">Certificate approved</h6>
+                                            <small class="text-muted">Batch: batch_12345, Type: Organic</small>
+                                        </div>
+                                        <small class="text-muted">37 min ago</small>
+                                    </div>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">API key generated</h6>
+                                            <small class="text-muted">User: api_user@fashionbrand.com</small>
+                                        </div>
+                                        <small class="text-muted">2 hours ago</small>
+                                    </div>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">System backup completed</h6>
+                                            <small class="text-muted">Size: 1.2GB</small>
+                                        </div>
+                                        <small class="text-muted">Yesterday, 11:30 PM</small>
+                                    </div>
+                                </a>
+                                <a href="#" class="list-group-item list-group-item-action">
+                                    <div class="d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <h6 class="mb-1">Chaincode upgraded</h6>
+                                            <small class="text-muted">Version: 1.2.0</small>
+                                        </div>
+                                        <small class="text-muted">Yesterday, 9:15 AM</small>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="admin-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>System Alerts</span>
+                            <a href="#" class="btn btn-sm btn-outline-secondary">View All</a>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-warning d-flex align-items-center" role="alert">
+                                <i class="bi bi-exclamation-triangle-fill flex-shrink-0 me-2"></i>
+                                <div>
+                                    Certificate expiring soon for Batch ID: batch_56789
+                                </div>
+                            </div>
+                            <div class="alert alert-info d-flex align-items-center" role="alert">
+                                <i class="bi bi-info-circle-fill flex-shrink-0 me-2"></i>
+                                <div>
+                                    System update available: v2.1.3
+                                </div>
+                            </div>
+                            <div class="alert alert-success d-flex align-items-center" role="alert">
+                                <i class="bi bi-check-circle-fill flex-shrink-0 me-2"></i>
+                                <div>
+                                    All network components are operational
+                                </div>
+                            </div>
+
+                            <div class="mt-4">
+                                <h6>Disk Usage</h6>
+                                <div class="progress mb-2" style="height: 8px;">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 45%;" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">450 GB / 1 TB</small>
+                                    <small class="text-success">Healthy (45%)</small>
+                                </div>
+                            </div>
+
+                            <div class="mt-3">
+                                <h6>Memory Usage</h6>
+                                <div class="progress mb-2" style="height: 8px;">
+                                    <div class="progress-bar bg-warning" role="progressbar" style="width: 72%;" aria-valuenow="72" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">11.5 GB / 16 GB</small>
+                                    <small class="text-warning">Moderate (72%)</small>
+                                </div>
+                            </div>
+
+                            <div class="mt-3">
+                                <h6>CPU Usage</h6>
+                                <div class="progress mb-2" style="height: 8px;">
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: 32%;" aria-valuenow="32" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <small class="text-muted">32%</small>
+                                    <small class="text-success">Healthy</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mt-4">
+                <div class="col-md-12">
+                    <div class="admin-card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>Network Status</span>
+                            <button class="btn btn-sm btn-primary">Refresh</button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Node Type</th>
+                                            <th>Organization</th>
+                                            <th>Status</th>
+                                            <th>Blocks</th>
+                                            <th>Version</th>
+                                            <th>Last Updated</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Peer</td>
+                                            <td>Org1</td>
+                                            <td><span class="status-badge status-active"></span> Active</td>
+                                            <td>1,248</td>
+                                            <td>2.2.5</td>
+                                            <td>5 min ago</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Peer</td>
+                                            <td>Org2</td>
+                                            <td><span class="status-badge status-active"></span> Active</td>
+                                            <td>1,248</td>
+                                            <td>2.2.5</td>
+                                            <td>7 min ago</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Orderer</td>
+                                            <td>OrdererOrg</td>
+                                            <td><span class="status-badge status-active"></span> Active</td>
+                                            <td>1,248</td>
+                                            <td>2.2.5</td>
+                                            <td>6 min ago</td>
+                                        </tr>
+                                        <tr>
+                                            <td>CA</td>
+                                            <td>Org1</td>
+                                            <td><span class="status-badge status-active"></span> Active</td>
+                                            <td>-</td>
+                                            <td>1.5.2</td>
+                                            <td>5 min ago</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Bridge</td>
+                                            <td>-</td>
+                                            <td><span class="status-badge status-active"></span> Active</td>
+                                            <td>-</td>
+                                            <td>1.0.0</td>
+                                            <td>4 min ago</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Other tabs would be defined here with show/hide logic controlled by JavaScript -->
+        <div class="tab-pane fade" id="users">
+            <!-- User management content -->
+        </div>
+
+        <div class="tab-pane fade" id="roles">
+            <!-- Roles & Permissions content -->
+        </div>
+
+        <div class="tab-pane fade" id="network">
+            <!-- Network Status content -->
+        </div>
+
+        <!-- And so on for other tabs -->
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Menu toggle functionality
+            const menuToggle = document.querySelectorAll('.menu-toggle');
+            menuToggle.forEach(toggle => {
+                toggle.addEventListener('click', function() {
+                    document.body.classList.toggle('sidebar-collapsed');
+                });
+            });
+
+            // Tab navigation
+            const navLinks = document.querySelectorAll('.nav-link');
+            const tabPanes = document.querySelectorAll('.tab-pane');
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+
+                    // Update active nav link
+                    navLinks.forEach(navLink => {
+                        navLink.classList.remove('active');
+                        navLink.parentElement.classList.remove('active');
+                    });
+                    this.classList.add('active');
+                    this.parentElement.classList.add('active');
+
+                    // Show corresponding tab
+                    const targetId = this.getAttribute('data-bs-target');
+                    tabPanes.forEach(pane => {
+                        pane.classList.remove('show', 'active');
+                    });
+                    document.querySelector(targetId).classList.add('show', 'active');
+
+                    // On mobile, collapse the sidebar after selecting an item
+                    if (window.innerWidth < 768) {
+                        document.body.classList.add('sidebar-collapsed');
+                    }
+                });
+            });
+
+            // Responsive behavior
+            function handleResize() {
+                if (window.innerWidth < 768) {
+                    document.body.classList.add('sidebar-collapsed');
+                } else {
+                    document.body.classList.remove('sidebar-collapsed');
+                }
+            }
+
+            // Initial check
+            handleResize();
+
+            // Listen for window resize events
+            window.addEventListener('resize', handleResize);
+        });
+    </script>
+</body>
+</html>
