@@ -1,0 +1,9 @@
+{
+  "name": "sustainable-fashion-bridge",
+  "version": "1.0.0",
+  "description": "Bridge between Fabric and Ethereum for Sustainable Fashion",
+  "main": "bridge.js",
+  "scripts": {
+    "start": "node bridge.js"
+  }
+}

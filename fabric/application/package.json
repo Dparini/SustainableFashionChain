@@ -1,0 +1,10 @@
+{
+  "name": "sustainable-fashion-app",
+  "version": "1.0.0",
+  "description": "Sustainable Fashion Supply Chain Application",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {}
+}
