@@ -1,6 +1,6 @@
 /**
  * Analytics Service for SustainableFashionChain
- * 
+ *
  * This service provides analytics capabilities for the SustainableFashionChain application,
  * including data aggregation, metrics calculation, and trend analysis for the supply chain.
  */
@@ -15,11 +15,9 @@ const { ethers } = require('ethers');
 // Load contract ABIs
 let CotTokenABI;
 let ProductNFTABI;
-let CircularRewardsABI;
 try {
   CotTokenABI = require('../../ethereum/artifacts/contracts/CotToken.sol/CotToken.json').abi;
   ProductNFTABI = require('../../ethereum/artifacts/contracts/ProductNFT.sol/ProductNFT.json').abi;
-  CircularRewardsABI = require('../../ethereum/artifacts/contracts/CircularRewards.sol/CircularRewards.json').abi;
 } catch (error) {
   console.warn('Could not load Ethereum contract ABIs:', error.message);
 }
@@ -30,9 +28,8 @@ class AnalyticsService {
     this.fabricContract = null;
     this.cotTokenContract = null;
     this.productNFTContract = null;
-    this.circularRewardsContract = null;
     this.ethereumProvider = null;
-    
+
     // Cache for analytics data
     this.cache = {
       batchMetrics: null,
@@ -65,7 +62,7 @@ class AnalyticsService {
   async connectToFabric() {
     try {
       // Load connection profile
-      const ccpPath = path.resolve(__dirname, '..', '..', 'fabric', 'network', 'organizations', 'peerOrganizations', 'org1.example.com', 'connection-org1.json');
+      const ccpPath = path.resolve(__dirname, '..', '..', 'network', 'organizations', 'peerOrganizations', 'org1.example.com', 'connection-org1.json');
       const ccp = JSON.parse(fs.readFileSync(ccpPath, 'utf8'));
 
       // Create a new wallet for identity
@@ -87,7 +84,7 @@ class AnalyticsService {
       });
 
       // Get the network and contract
-      const network = await gateway.getNetwork('sustainchannel');
+      const network = await gateway.getNetwork('mychannel');
       const contract = network.getContract('supplychain');
 
       this.fabricNetwork = network;
@@ -122,13 +119,9 @@ class AnalyticsService {
       if (CotTokenABI && contractAddresses.CotToken) {
         this.cotTokenContract = new ethers.Contract(contractAddresses.CotToken, CotTokenABI, provider);
       }
-      
+
       if (ProductNFTABI && contractAddresses.ProductNFT) {
         this.productNFTContract = new ethers.Contract(contractAddresses.ProductNFT, ProductNFTABI, provider);
-      }
-      
-      if (CircularRewardsABI && contractAddresses.circularRewards) {
-        this.circularRewardsContract = new ethers.Contract(contractAddresses.circularRewards, CircularRewardsABI, provider);
       }
 
       console.log('Connected to Ethereum network');
@@ -143,7 +136,7 @@ class AnalyticsService {
    * Get batch metrics from Hyperledger Fabric
    */
   async getBatchMetrics() {
-    if (this.cache.batchMetrics && this.cache.lastUpdate && 
+    if (this.cache.batchMetrics && this.cache.lastUpdate &&
         (Date.now() - this.cache.lastUpdate < this.cache.cacheTTL)) {
       return this.cache.batchMetrics;
     }
@@ -153,7 +146,7 @@ class AnalyticsService {
         await this.connectToFabric();
       }
 
-      // Query all batches (using the correct function name based on your chaincode)
+      // Query all batches
       const result = await this.fabricContract.evaluateTransaction('queryProductsByType', 'cotton');
       const batches = JSON.parse(result.toString());
 
@@ -190,7 +183,7 @@ class AnalyticsService {
         if (batch.harvestDate) {
           const date = new Date(batch.harvestDate);
           const monthYear = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-          
+
           if (!metrics.monthlyProduction[monthYear]) {
             metrics.monthlyProduction[monthYear] = {
               total: 0,
@@ -199,7 +192,7 @@ class AnalyticsService {
               weight: 0
             };
           }
-          
+
           metrics.monthlyProduction[monthYear].total += 1;
           if (batch.organic) {
             metrics.monthlyProduction[monthYear].organic += 1;
@@ -235,7 +228,7 @@ class AnalyticsService {
    * Get product metrics from Hyperledger Fabric
    */
   async getProductMetrics() {
-    if (this.cache.productMetrics && this.cache.lastUpdate && 
+    if (this.cache.productMetrics && this.cache.lastUpdate &&
         (Date.now() - this.cache.lastUpdate < this.cache.cacheTTL)) {
       return this.cache.productMetrics;
     }
@@ -292,7 +285,7 @@ class AnalyticsService {
               };
             }
             metrics.materialUsage[material.type].total++;
-            
+
             if (material.sustainable) {
               metrics.materialUsage[material.type].sustainable++;
             }
@@ -324,7 +317,7 @@ class AnalyticsService {
    * Get tokenization metrics from Ethereum
    */
   async getTokenizationMetrics() {
-    if (this.cache.tokenizationMetrics && this.cache.lastUpdate && 
+    if (this.cache.tokenizationMetrics && this.cache.lastUpdate &&
         (Date.now() - this.cache.lastUpdate < this.cache.cacheTTL)) {
       return this.cache.tokenizationMetrics;
     }
@@ -345,9 +338,9 @@ class AnalyticsService {
       // Check that Ethereum contracts are initialized
       if (!this.cotTokenContract || !this.productNFTContract) {
         await this.connectToEthereum();
-        
+
         if (!this.cotTokenContract || !this.productNFTContract) {
-          return { 
+          return {
             error: "Ethereum contracts not available",
             mockData: true,
             totalTokenized: 65,
@@ -367,7 +360,7 @@ class AnalyticsService {
         if (this.cotTokenContract) {
           const totalSupply = await this.cotTokenContract.totalSupply();
           metrics.totalTokenized = parseFloat(ethers.utils.formatEther(totalSupply));
-          
+
           // Estimate value (in a real system, you'd get this from an oracle)
           metrics.totalTokenValue = metrics.totalTokenized * 30; // Example: $30 per kg
         }
@@ -408,7 +401,7 @@ class AnalyticsService {
    * Get sustainability metrics
    */
   async getSustainabilityMetrics() {
-    if (this.cache.sustainabilityMetrics && this.cache.lastUpdate && 
+    if (this.cache.sustainabilityMetrics && this.cache.lastUpdate &&
         (Date.now() - this.cache.lastUpdate < this.cache.cacheTTL)) {
       return this.cache.sustainabilityMetrics;
     }
@@ -417,16 +410,16 @@ class AnalyticsService {
       // Combine data from different sources
       const batchMetrics = await this.getBatchMetrics();
       const productMetrics = await this.getProductMetrics();
-      
+
       // Calculate sustainability metrics
       const metrics = {
-        organicPercentage: batchMetrics.totalCount > 0 
-          ? (batchMetrics.organicCount / batchMetrics.totalCount * 100).toFixed(1) 
+        organicPercentage: batchMetrics.totalCount > 0
+          ? (batchMetrics.organicCount / batchMetrics.totalCount * 100).toFixed(1)
           : 0,
         highSustainabilityProductsPercentage: productMetrics.totalCount > 0
           ? (productMetrics.bySustainabilityScore.high / productMetrics.totalCount * 100).toFixed(1)
           : 0,
-        
+
         // Environmental impact estimates (these would be calculated based on real data in a production system)
         environmentalImpact: {
           carbonReduction: '48.2', // tonnes
@@ -434,7 +427,7 @@ class AnalyticsService {
           landEfficiency: '38', // percent improvement
           chemicalReduction: '52.7' // percent reduction
         },
-        
+
         // Certifications breakdown
         certifications: productMetrics.certificationCounts || {}
       };
@@ -457,7 +450,7 @@ class AnalyticsService {
    */
   async getDashboardData() {
     try {
-      const [batchMetrics, productMetrics, tokenizationMetrics, sustainabilityMetrics] = 
+      const [batchMetrics, productMetrics, tokenizationMetrics, sustainabilityMetrics] =
         await Promise.all([
           this.getBatchMetrics(),
           this.getProductMetrics(),
@@ -480,10 +473,6 @@ class AnalyticsService {
 
   /**
    * Get supply chain activity data (for timelines)
-   * 
-   * Note: In a production system, this would query actual blockchain events
-   * using a chaincode function that returns timestamp-filtered events.
-   * For this demo, we generate representative mock data.
    */
   async getSupplyChainActivity(timespan = '30d') {
     try {
@@ -494,7 +483,7 @@ class AnalyticsService {
       // Calculate date range
       const endDate = new Date();
       let startDate = new Date();
-      
+
       switch (timespan) {
         case '7d':
           startDate.setDate(endDate.getDate() - 7);
@@ -514,7 +503,7 @@ class AnalyticsService {
 
       // Query recent activities (this would need to be implemented in the chaincode)
       // For now, we'll generate mock data
-      
+
       // Prepare timeline data structure
       const timeline = {
         batchRegistrations: [],
@@ -526,31 +515,31 @@ class AnalyticsService {
       // Generate mock timeline data
       const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24));
       let currentDate = new Date(startDate);
-      
+
       for (let i = 0; i < days; i++) {
         const dateStr = currentDate.toISOString().split('T')[0];
-        
+
         // Add some randomness to the data
         timeline.batchRegistrations.push({
           date: dateStr,
           count: Math.floor(Math.random() * 5) + 1 // 1-5 registrations per day
         });
-        
+
         timeline.certifications.push({
           date: dateStr,
           count: Math.floor(Math.random() * 4) // 0-3 certifications per day
         });
-        
+
         timeline.tokenizations.push({
           date: dateStr,
           count: Math.floor(Math.random() * 3) // 0-2 tokenizations per day
         });
-        
+
         timeline.productCreations.push({
           date: dateStr,
           count: Math.floor(Math.random() * 2) // 0-1 products per day
         });
-        
+
         // Move to next day
         currentDate.setDate(currentDate.getDate() + 1);
       }
@@ -572,7 +561,7 @@ class AnalyticsService {
    */
   async generateSustainabilityReport() {
     try {
-      const [batchMetrics, productMetrics, sustainabilityMetrics] = 
+      const [batchMetrics, productMetrics, sustainabilityMetrics] =
         await Promise.all([
           this.getBatchMetrics(),
           this.getProductMetrics(),
@@ -624,7 +613,7 @@ class AnalyticsService {
       // Calculate total circular actions
       const circularActions = tokenizationMetrics.circularEconomyActions;
       const totalActions = Object.values(circularActions).reduce((a, b) => a + b, 0);
-      
+
       // Calculate circular percentage (what percentage of products had circular actions)
       const circularPercentage = productMetrics.totalCount > 0
         ? (totalActions / productMetrics.totalCount * 100).toFixed(1)
