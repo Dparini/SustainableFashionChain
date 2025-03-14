@@ -11,6 +11,7 @@
     "hardhat": "^2.22.19"
   },
   "dependencies": {
-    "dotenv": "^16.4.7"
+    "dotenv": "^16.4.7",
+    "keccak256": "^1.0.6"
   }
 }

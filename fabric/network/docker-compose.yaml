@@ -1,49 +1,24 @@
-version: '3'
+vversion: '3'
 services:
-  mongodb:
-    image: mongo:latest
-    ports:
-      - "27017:27017"
-    volumes:
-      - mongodb_data:/data/db
-
-  fabric-network:
-    build:
-      context: ./fabric/network
-    ports:
-      - "7050:7050"
-      - "7051:7051"
-      - "9051:9051"
-    volumes:
-      - ./fabric/network/organizations:/opt/fabric/organizations
-      - ./fabric/network/channel-artifacts:/opt/fabric/channel-artifacts
-
-  ethereum-node:
-    image: ethereum/client-go
-    ports:
-      - "8545:8545"
-      - "30303:30303"
-    command: --http --http.addr "0.0.0.0" --http.port 8545 --http.api "eth,net,web3,personal,miner" --http.corsdomain "*" --dev
-
-  backend:
-    build:
-      context: ./fabric/application
-    ports:
-      - "3000:3000"
-    depends_on:
-      - mongodb
-      - fabric-network
+  peer0.org1.example.com:
+    container_name: peer0.org1.example.com
+    image: hyperledger/fabric-peer:2.2
     environment:
-      - MONGODB_URI=mongodb://mongodb:27017/sustainablefashionchain
-      - FABRIC_NETWORK_URL=fabric-network:7051
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_PEER_ID=peer0.org1.example.com
+      - CORE_PEER_ADDRESS=peer0.org1.example.com:7051
+    volumes:
+      - /var/run/docker.sock:/host/var/run/docker.sock
+    networks:
+      - fabric-network
 
-  frontend:
-    build:
-      context: ./frontend
-    ports:
-      - "3001:80"
-    depends_on:
-      - backend
+  ca.org1.example.com:
+    container_name: ca.org1.example.com
+    image: hyperledger/fabric-ca:1.5
+    environment:
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+    networks:
+      - fabric-network
 
-volumes:
-  mongodb_data:
+networks:
+  fabric-network:

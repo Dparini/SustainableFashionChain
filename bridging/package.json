@@ -28,6 +28,8 @@
     "express-rate-limit": "^7.5.0",
     "fabric-ca-client": "^2.2.20",
     "fabric-network": "^2.2.20",
+    "keccak256": "^1.0.6",
+    "merkletreejs": "^0.5.1",
     "winston": "^3.7.2"
   },
   "devDependencies": {
