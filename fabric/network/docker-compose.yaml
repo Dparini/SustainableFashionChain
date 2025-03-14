@@ -1,31 +1,41 @@
 version: '3'
 services:
-  api:
+  mongodb:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  fabric-network:
+    build:
+      context: ./fabric/network
+    ports:
+      - "7050:7050"
+      - "7051:7051"
+      - "9051:9051"
+    volumes:
+      - ./fabric/network/organizations:/opt/fabric/organizations
+      - ./fabric/network/channel-artifacts:/opt/fabric/channel-artifacts
+
+  ethereum-node:
+    image: ethereum/client-go
+    ports:
+      - "8545:8545"
+      - "30303:30303"
+    command: --http --http.addr "0.0.0.0" --http.port 8545 --http.api "eth,net,web3,personal,miner" --http.corsdomain "*" --dev
+
+  backend:
     build:
       context: ./fabric/application
     ports:
       - "3000:3000"
-    volumes:
-      - ./fabric/application:/app
-      - ./fabric/network/organizations:/app/organizations
-    environment:
-      - NODE_ENV=development
-    networks:
-      - sustainable-fashion-network
-
-  bridge:
-    build:
-      context: ./bridging
     depends_on:
-      - api
-    volumes:
-      - ./bridging:/app
-      - ./ethereum/artifacts:/app/ethereum/artifacts
-      - ./fabric/network/organizations:/app/organizations
+      - mongodb
+      - fabric-network
     environment:
-      - NODE_ENV=development
-    networks:
-      - sustainable-fashion-network
+      - MONGODB_URI=mongodb://mongodb:27017/sustainablefashionchain
+      - FABRIC_NETWORK_URL=fabric-network:7051
 
   frontend:
     build:
@@ -33,10 +43,7 @@ services:
     ports:
       - "3001:80"
     depends_on:
-      - api
-    networks:
-      - sustainable-fashion-network
+      - backend
 
-networks:
-  sustainable-fashion-network:
-    driver: bridge
+volumes:
+  mongodb_data:
