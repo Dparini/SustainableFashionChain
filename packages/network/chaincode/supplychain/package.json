@@ -1,0 +1,17 @@
+{
+  "name": "supplychain-contract",
+  "version": "1.0.0",
+  "description": "Supply Chain Contract for Sustainable Fashion",
+  "main": "index.js",
+  "engines": {
+    "node": ">=12",
+    "npm": ">=6.9"
+  },
+  "scripts": {
+    "start": "fabric-chaincode-node start"
+  },
+  "dependencies": {
+    "fabric-contract-api": "^2.2.0",
+    "fabric-shim": "^2.2.0"
+  }
+}

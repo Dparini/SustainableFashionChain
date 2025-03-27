@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        /* Custom styles */
+        .hero-section {
+            background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('/images/cotton-field.jpg');
+            background-size: cover;
+            background-position: center;
+            color: white;
+            padding: 120px 0;
+            text-align: center;
+        }
+
+        .hero-section h1 {
+            font-size: 3.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .hero-section p {
+            font-size: 1.2rem;
+            max-width: 800px;
+            margin: 0 auto 2rem auto;
+        }
+
+        .feature-card {
+            border-radius: 10px;
+            overflow: hidden;
+            transition: transform 0.3s, box-shadow 0.3s;
+            height: 100%;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .benefits-section {
+            background-color: #f8f9fa;
+            padding: 100px 0;
+        }
+
+        .benefit-item {
+            margin-bottom: 40px;
+        }
+
+        .benefit-icon {
+            width: 80px;
+            height: 80px;
+            background-color: #198754;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin-bottom: 20px;
+        }
+
+        .tech-section {
+            padding: 100px 0;
+        }
+
+        .tech-logo {
+            height: 60px;
+            margin: 20px;
+            opacity: 0.7;
+            transition: opacity 0.3s;
+        }
+
+        .tech-logo:hover {
+            opacity: 1;
+        }
+
+        .cta-section {
+            background: linear-gradient(to right, #198754, #20c997);
+            color: white;
+            padding: 80px 0;
+            text-align: center;
+        }
+
+        .testimonial-card {
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+        }
+
+        .testimonial-content {
+            padding: 30px;
+        }
+
+        .testimonial-author {
+            display: flex;
+            align-items: center;
+            padding: 20px 30px;
+            background-color: #f8f9fa;
+        }
+
+        .testimonial-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            margin-right: 15px;
+            background-color: #dee2e6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            color: #6c757d;
+        }
+
+        .partner-logo {
+            max-height: 60px;
+            margin: 20px;
+            opacity: 0.8;
+            transition: opacity 0.3s;
+        }
+
+        .partner-logo:hover {
+            opacity: 1;
+        }
+
+        .how-it-works {
+            position: relative;
+            padding: 100px 0;
+        }
+
+        .how-it-works::before {
+            content: '';
+            position: absolute;
+            top: 150px;
+            bottom: 150px;
+            left: 50%;
+            width: 4px;
+            background-color: #20c997;
+            transform: translateX(-50%);
+        }
+
+        .step-box {
+            position: relative;
+            margin-bottom: 50px;
+        }
+
+        .step-number {
+            width: 50px;
+            height: 50px;
+            background-color: #198754;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1;
+        }
+
+        .step-content {
+            background-color: white;
+            border-radius: 10px;
+            padding: 30px;
+            margin-top: 25px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .qr-demo {
+            max-width: 150px;
+            margin: 0 auto;
+        }
+
+        #scrollTopBtn {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 99;
+            font-size: 18px;
+            border: none;
+            outline: none;
+            background-color: #198754;
+            color: white;
+            cursor: pointer;
+            padding: 12px;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+        }
+
+        .sustainability-metrics {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .sustainability-metric {
+            margin-bottom: 15px;
+        }
+
+        .sustainability-bar {
+            height: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+
+        .sustainability-progress {
+            height: 100%;
+            background-color: #198754;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success fixed-top">
+        <div class="container">
+            <a class="navbar-brand" href="/">SustainableFashionChain</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/analytics">Analytics</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/batches">Batches</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/products">Products</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/marketplace">Marketplace</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/api-docs">API Docs</a>
+                    </li>
+                </ul>
+                <div class="d-flex">
+                    <a href="/login" class="btn btn-outline-light me-2">Login</a>
+                    <a href="/register" class="btn btn-light">Register</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container">
+            <h1>Sustainable Fashion Supply Chain on Blockchain</h1>
+            <p>Track cotton from farm to product with complete transparency, tokenize commodities, and build trust with consumers through verifiable sustainability.</p>
+            <div>
+                <a href="/batches" class="btn btn-success btn-lg me-3">Explore Platform</a>
+                <a href="#how-it-works" class="btn btn-outline-light btn-lg">How It Works</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="py-5">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="display-5 fw-bold">Our Platform Features</h2>
+                <p class="lead">Combining Hyperledger Fabric for supply chain traceability with Ethereum for tokenization</p>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card feature-card">
+                        <div class="card-body text-center p-5">
+                            <div class="feature-icon text-success">
+                                <i class="bi bi-link-45deg"></i>
+                            </div>
+                            <h3 class="card-title">Traceable Supply Chain</h3>
+                            <p class="card-text">Track every step from farm to final product with immutable blockchain records for complete transparency.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card feature-card">
+                        <div class="card-body text-center p-5">
+                            <div class="feature-icon text-primary">
+                                <i class="bi bi-coin"></i>
+                            </div>
+                            <h3 class="card-title">Commodity Tokenization</h3>
+                            <p class="card-text">Convert physical cotton into digital tokens for transparent trading and financial flexibility.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card feature-card">
+                        <div class="card-body text-center p-5">
+                            <div class="feature-icon text-warning">
+                                <i class="bi bi-shield-check"></i>
+                            </div>
+                            <h3 class="card-title">Product NFTs</h3>
+                            <p class="card-text">Create unique digital twins for products with verifiable provenance and sustainability credentials.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card feature-card">
+                        <div class="card-body text-center p-5">
+                            <div class="feature-icon text-info">
+                                <i class="bi bi-recycle"></i>
+                            </div>
+                            <h3 class="card-title">Circular Economy</h3>
+                            <p class="card-text">Incentivize recycling, repair, and resale activities with token rewards for sustainable behavior.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card feature-card">
+                        <div class="card-body text-center p-5">
+                            <div class="feature-icon text-danger">
+                                <i class="bi bi-file-earmark-check"></i>
+                            </div>
+                            <h3 class="card-title">Certifications Verification</h3>
+                            <p class="card-text">Validate organic, fair trade, and other certifications with secure, tamper-proof blockchain records.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card feature-card">
+                        <div class="card-body text-center p-5">
+                            <div class="feature-icon text-secondary">
+                                <i class="bi bi-graph-up"></i>
+                            </div>
+                            <h3 class="card-title">Analytics Dashboard</h3>
+                            <p class="card-text">Gain insights with comprehensive analytics on sustainability metrics, supply chain activity, and more.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section class="how-it-works" id="how-it-works">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="display-5 fw-bold">How It Works</h2>
+                <p class="lead">Follow the journey from cotton field to consumer, powered by blockchain technology</p>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 offset-md-3">
+                    <div class="step-box">
+                        <div class="step-number">1</div>
+                        <div class="step-content">
+                            <h4>Cotton Registration</h4>
+                            <p>Farmers register cotton batches on the blockchain, recording quantity, location, and sustainable growing practices.</p>
+                        </div>
+                    </div>
+
+                    <div class="step-box">
+                        <div class="step-number">2</div>
+                        <div class="step-content">
+                            <h4>Certification Verification</h4>
+                            <p>Third-party certification bodies verify organic, fair trade, and other credentials directly on the blockchain.</p>
+                        </div>
+                    </div>
+
+                    <div class="step-box">
+                        <div class="step-number">3</div>
+                        <div class="step-content">
+                            <h4>Supply Chain Tracking</h4>
+                            <p>Cotton moves through the supply chain with each custody transfer recorded on Hyperledger Fabric.</p>
+                        </div>
+                    </div>
+
+                    <div class="step-box">
+                        <div class="step-number">4</div>
+                        <div class="step-content">
+                            <h4>Cotton Tokenization</h4>
+                            <p>At a verified warehouse, physical cotton is tokenized on Ethereum, creating digital assets backed by the commodity.</p>
+                        </div>
+                    </div>
+
+                    <div class="step-box">
+                        <div class="step-number">5</div>
+                        <div class="step-content">
+                            <h4>Product Creation & NFT Minting</h4>
+                            <p>Manufacturers create products using tracked cotton and mint NFTs with complete provenance data.</p>
+                        </div>
+                    </div>
+
+                    <div class="step-box">
+                        <div class="step-number">6</div>
+                        <div class="step-content">
+                            <h4>Consumer Verification</h4>
+                            <p>Consumers scan QR codes to verify product authenticity, view supply chain history, and sustainability metrics.</p>
+                            <div class="qr-demo">
+                                <img src="/images/qr-sample.png" alt="QR Code Example" class="img-fluid" onerror="this.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAIAAAACACAMAAAD04JH5AAAAclBMVEX///8AAACurq7S0tL6+vqjo6O4uLj09PTg4ODw8PDo6Oj39/eQkJDa2tqamprs7OyMjIy+vr7Hx8d5eXlFRUWHh4cuLi5NTU0iIiKVlZVtbW1WVlZmZmYXFxeenp48PDxdXV0PDw81NTUbGxtycnJISEg33S9XAAAEi0lEQVR4nO1a65aqOBCVJCSIIKKggIragP//jbNJJw9M2hY4szhr1v6h9NGkKlV1qpL4+PhDGAxneDj3ZTha/DEcy7sHYCLEpOvdKTy+NRB7IUQQDrveHsOxFVFEl71D0cAwiP7xw2O3u2MYH+LNwa7HxcfwUwjHa/Oc8jrvh3MsxCD2zJOiOQTzftgeQOj6xjm6H5ZUwEEcm6fLF3/Wj+hbyKIXw1ZPrvQa6hf6SojlOb5vJOBR0xrEqR82CoZCrIjd6Sg+6zH1Cz0WYkMRMBMH5Zi2Y+obeiS2FAGrp5hi/+wbeiTCFR4OxFUZfKv6JfSWfm9C0EKGo76hYzHnCEjdEZFbM+sZeiwmHAEnN34SDPb9QsfQa8GDNK3RTt/QsWZf+L04qyN7xdh+uG/ouAQgkL7USRMBgRIfPUN/QruCRfLNqS4BUHBOpA/1CT3W8Pc03HwfkSYEBLAiHvrW0HXoRVUBaxBD3aYOwfqgT0bQoQ/UGCWXM3g21oYzwPbLM3okxgQBwTkdoB36hB6LIdluRwdosGW/A/rBcxKHU17DTiztU8CaYlHTXLF3UNzY/yMYVAf+hJSCdE8cC8+MoKGx31QDezQ19nvqC0pTN9C2FLl1bHl/nqFxjQqE2GkLQ2z6xGrJM3QsRn5b9bU+K+rjfIZOHxI9qfgDCKiLqFJQ89D5pCqpAgbxeY+KogZUgSU3fv6uDkijJqCnf6mTRQPQxfk9s34uFpVBXQU6rA4DbbWsaGYdC6pz3uXCFTodEOvQeZ1gKyCtU9Qp6gUcJULt0GnXozdDx7E4D0qtNxQd6JmJoXoAqR2aB9jpd6TLw0jTtZDdYUqn4n6IuV5o7dA8cLOYBVkrcdA2M2XOB426MqZKfxjTBOTq7G+4Oe3okRmPqX5AHWCTrWVNQNnvCcP/FfTJMjl5vWBEE5BHcSYMbgLRCYZE+JYxCuBJUYz9LQNcmF6QUiPIC3UBGZSEkzR5dujz7ZPWuPJuNQ5Dv26RKvbp1wvYu9Wa7YO0/NwOvSDfgd46+7hzw24MQ4+PnQB5gfq1kLNWFMvjbDBIr4YhlRbFd9q0u4RDIVb5Tm03QRZNiZ0P41S2d0bBpb6DMkwhPXpzmswQQk0rT9vrzwvMpXiGlZPp63Y7f14Wy9eD0rLYLIAMoZYtZUZcOYb2tAzXKQMZV0lDyG2sBMx4asgcAw68C3U3pjcA6yZu+XoB7Iu4JWaBvhIYOndHIBGWwPUQrTEqxdydyxQEpAlhvbCp0aMQ2z1P7dDaJSA2rSW2u3dVgLl10Qj3UH3kDVAbO82ZFwjNsIKg5YymtCdcgfuYx9HXJuH0JXjJtdXsGEQBuoJc3WJqkS6cOJxfb+NwnSSOa9gPy/D6YdBV/OHtcv2g+yMKa+IQx6t1/Hm8pXo8eCDLpgpK8cctmj9T73VTK1GU6pO3xHJXG3ffFgxflXxLN4XG5fcE2eEQ2rXt/vAH8R/YP3gVYJxOrQAAAABJRU5ErkJggg=='">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="step-box">
+                        <div class="step-number">7</div>
+                        <div class="step-content">
+                            <h4>Circular Economy Rewards</h4>
+                            <p>Consumers earn rewards for sustainable actions like recycling, repair, and reselling products.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Benefits Section -->
+    <section class="benefits-section">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="display-5 fw-bold">Benefits For Every Stakeholder</h2>
+                <p class="lead">Our hybrid blockchain solution creates value throughout the entire supply chain</p>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="benefit-item">
+                        <div class="benefit-icon">
+                            <i class="bi bi-tree"></i>
+                        </div>
+                        <h3>For Cotton Farmers</h3>
+                        <p>Verify sustainable growing practices, access premium markets, and receive fair prices with transparent transactions.</p>
+                        <div class="sustainability-metrics">
+                            <div class="sustainability-metric">
+                                <div class="d-flex justify-content-between">
+                                    <span>Income Stability</span>
+                                    <span>+35%</span>
+                                </div>
+                                <div class="sustainability-bar">
+                                    <div class="sustainability-progress" style="width: 35%;"></div>
+                                </div>
+                            </div>
+                            <div class="sustainability-metric">
+                                <div class="d-flex justify-content-between">
+                                    <span>Market Access</span>
+                                    <span>+62%</span>
+                                </div>
+                                <div class="sustainability-bar">
+                                    <div class="sustainability-progress" style="width: 62%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="benefit-item">
+                        <div class="benefit-icon">
+                            <i class="bi bi-building"></i>
+                        </div>
+                        <h3>For Manufacturers</h3>
+                        <p>Verify sustainable material sourcing, reduce compliance costs, and build consumer trust with transparent supply chains.</p>
+                        <div class="sustainability-metrics">
+                            <div class="sustainability-metric">
+                                <div class="d-flex justify-content-between">
+                                    <span>Certification Costs</span>
+                                    <span>-45%</span>
+                                </div>
+                                <div class="sustainability-bar">
+                                    <div class="sustainability-progress" style="width: 45%;"></div>
+                                </div>
+                            </div>
+                            <div class="sustainability-metric">
+                                <div class="d-flex justify-content-between">
+                                    <span>Traceability Time</span>
+                                    <span>-82%</span>
+                                </div>
+                                <div class="sustainability-bar">
+                                    <div class="sustainability-progress" style="width: 82%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="benefit-item">
+                        <div class="benefit-icon">
+                            <i class="bi bi-shop"></i>
+                        </div>
+                        <h3>For Retailers</h3>
+                        <p>Validate sustainability claims, reduce returns with product authentication, and increase consumer trust and loyalty.</p>
+                        <div class="sustainability-metrics">
+                            <div class="sustainability-metric">
+                                <div class="d-flex justify-content-between">
+                                    <span>Return Rate</span>
+                                    <span>-38%</span>
+                                </div>
+                                <div class="sustainability-bar">
+                                    <div class="sustainability-progress" style="width: 38%;"></div>
+                                </div>
+                            </div>
+                            <div class="sustainability-metric">
+                                <div class="d-flex justify-content-between">
+                                    <span>Consumer Trust</span>
+                                    <span>+74%</span>
+                                </div>
+                                <div class="sustainability-bar">
+                                    <div class="sustainability-progress" style="width: 74%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="benefit-item">
+                        <div class="benefit-icon">
+                            <i class="bi bi-person"></i>
+                        </div>
+                        <h3>For Consumers</h3>
+                        <p>Verify product authenticity, make informed sustainable choices, and earn rewards for circular economy participation.</p>
+                        <div class="sustainability-metrics">
+                            <div class="sustainability-metric">
+                                <div class="d-flex justify-content-between">
+                                    <span>Decision Confidence</span>
+                                    <span>+85%</span>
+                                </div>
+                                <div class="sustainability-bar">
+                                    <div class="sustainability-progress" style="width: 85%;"></div>
+                                </div>
+                            </div>
+                            <div class="sustainability-metric">
+                                <div class="d-flex justify-content-between">
+                                    <span>Sustainability Impact</span>
+                                    <span>+67%</span>
+                                </div>
+                                <div class="sustainability-bar">
+                                    <div class="sustainability-progress" style="width: 67%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technology Section -->
+    <section class="tech-section">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="display-5 fw-bold">Powered by Advanced Technology</h2>
+                <p class="lead">Our hybrid blockchain architecture leverages best-in-class technologies</p>
+            </div>
+
+            <div class="row justify-content-center">
+                <div class="col-md-10">
+                    <div class="row">
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h3 class="text-success">Hyperledger Fabric</h3>
+                                    <p>Permission-based blockchain for sensitive supply chain data with high performance and privacy controls.</p>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bi bi-check-circle-fill text-success me-2"></i>Private, permissioned network</li>
+                                        <li><i class="bi bi-check-circle-fill text-success me-2"></i>High transaction throughput</li>
+                                        <li><i class="bi bi-check-circle-fill text-success me-2"></i>Flexible endorsement policies</li>
+                                        <li><i class="bi bi-check-circle-fill text-success me-2"></i>Channel-based data isolation</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h3 class="text-primary">Ethereum</h3>
+                                    <p>Public blockchain for tokenization, NFTs, and circular economy incentives with DeFi integration.</p>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bi bi-check-circle-fill text-primary me-2"></i>ERC-20 commodity tokens</li>
+                                        <li><i class="bi bi-check-circle-fill text-primary me-2"></i>ERC-721 product NFTs</li>
+                                        <li><i class="bi bi-check-circle-fill text-primary me-2"></i>Smart contract automation</li>
+                                        <li><i class="bi bi-check-circle-fill text-primary me-2"></i>DeFi ecosystem integration</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h3 class="text-warning">Oracle Integration</h3>
+                                    <p>Real-world data feeds for commodity pricing, weather conditions, and other critical information.</p>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bi bi-check-circle-fill text-warning me-2"></i>Market price feeds</li>
+                                        <li><i class="bi bi-check-circle-fill text-warning me-2"></i>Weather data for growing regions</li>
+                                        <li><i class="bi bi-check-circle-fill text-warning me-2"></i>Parametric insurance triggers</li>
+                                        <li><i class="bi bi-check-circle-fill text-warning me-2"></i>Carbon credit validation</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-4">
+                            <div class="card h-100">
+                                <div class="card-body">
+                                    <h3 class="text-danger">Blockchain Bridge</h3>
+                                    <p>Custom bridge technology connecting Hyperledger Fabric and Ethereum for seamless operation.</p>
+                                    <ul class="list-unstyled">
+                                        <li><i class="bi bi-check-circle-fill text-danger me-2"></i>Secure cross-chain communication</li>
+                                        <li><i class="bi bi-check-circle-fill text-danger me-2"></i>Event-driven architecture</li>
+                                        <li><i class="bi bi-check-circle-fill text-danger me-2"></i>Reliable transaction queue</li>
+                                        <li><i class="bi bi-check-circle-fill text-danger me-2"></i>Atomic transaction guarantees</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-5">
+                <div class="d-flex flex-wrap justify-content-center align-items-center">
+                    <img src="/images/hyperledger-logo.png" alt="Hyperledger" class="tech-logo" onerror="this.style.display='none'">
+                    <img src="/images/ethereum-logo.png" alt="Ethereum" class="tech-logo" onerror="this.style.display='none'">
+                    <img src="/images/nodejs-logo.png" alt="Node.js" class="tech-logo" onerror="this.style.display='none'">
+                    <img src="/images/react-logo.png" alt="React" class="tech-logo" onerror="this.style.display='none'">
+                    <img src="/images/docker-logo.png" alt="Docker" class="tech-logo" onerror="this.style.display='none'">
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section class="py-5 bg-light">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="display-5 fw-bold">What Our Partners Say</h2>
+                <p class="lead">Organizations already benefiting from our blockchain solution</p>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="testimonial-card">
+                        <div class="testimonial-content">
+                            <p>"With SustainableFashionChain, we've increased our organic cotton sales by 45% and established direct relationships with premium brands that value transparency."</p>
+                        </div>
+                        <div class="testimonial-author">
+                            <div class="testimonial-avatar">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-0">Rajiv Sharma</h5>
+                                <p class="mb-0 text-muted">Cotton Farmer Cooperative</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="testimonial-card">
+                        <div class="testimonial-content">
+                            <p>"The ability to verify sustainability claims has reduced our compliance costs by 38% and strengthened our brand's position as an industry leader in ethical fashion."</p>
+                        </div>
+                        <div class="testimonial-author">
+                            <div class="testimonial-avatar">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-0">Emma Chen</h5>
+                                <p class="mb-0 text-muted">Sustainability Director, EcoFashion</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="testimonial-card">
+                        <div class="testimonial-content">
+                            <p>"Our customers love scanning QR codes to see exactly where their products came from. We've seen a 27% increase in brand loyalty and 42% reduction in returns."</p>
+                        </div>
+                        <div class="testimonial-author">
+                            <div class="testimonial-avatar">
+                                <i class="bi bi-person-fill"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-0">Miguel Rodriguez</h5>
+                                <p class="mb-0 text-muted">CEO, Fashion Forward Retail</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-5">
+                <h4 class="mb-4">Trusted By</h4>
+                <div class="d-flex flex-wrap justify-content-center align-items-center">
+                    <div class="partner-logo">FairFashion</div>
+                    <div class="partner-logo">EcoCert</div>
+                    <div class="partner-logo">GreenTextiles</div>
+                    <div class="partner-logo">OrganicFarms</div>
+                    <div class="partner-logo">SustainableRetail</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta-section">
+        <div class="container">
+            <h2 class="display-5 fw-bold mb-4">Ready to Join the Sustainable Fashion Revolution?</h2>
+            <p class="lead mb-4">Start building transparency and trust in your supply chain today.</p>
+            <div>
+                <a href="/register" class="btn btn-light btn-lg me-3">Get Started</a>
+                <a href="/contact" class="btn btn-outline-light btn-lg">Contact Us</a>
+            </div>
+        </div>
+    </section>
+
+    <footer class="bg-dark text-white py-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 mb-4 mb-md-0">
+                    <h5>SustainableFashionChain</h5>
+                    <p>Building trust in sustainable fashion through blockchain technology.</p>
+                    <div class="d-flex mt-3">
+                        <a href="#" class="text-white me-3"><i class="bi bi-twitter"></i></a>
+                        <a href="#" class="text-white me-3"><i class="bi bi-linkedin"></i></a>
+                        <a href="#" class="text-white me-3"><i class="bi bi-instagram"></i></a>
+                        <a href="#" class="text-white"><i class="bi bi-github"></i></a>
+                    </div>
+                </div>
+                <div class="col-md-2 mb-4 mb-md-0">
+                    <h5>Platform</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="/batches" class="text-white text-decoration-none">Cotton Batches</a></li>
+                        <li><a href="/products" class="text-white text-decoration-none">Products</a></li>
+                        <li><a href="/analytics" class="text-white text-decoration-none">Analytics</a></li>
+                        <li><a href="/api-docs" class="text-white text-decoration-none">API Documentation</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-2 mb-4 mb-md-0">
+                    <h5>Resources</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="#" class="text-white text-decoration-none">Documentation</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">Developer Guide</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">FAQs</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">Blog</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-2 mb-4 mb-md-0">
+                    <h5>Company</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="#" class="text-white text-decoration-none">About Us</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">Careers</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">Press</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">Contact</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-2">
+                    <h5>Legal</h5>
+                    <ul class="list-unstyled">
+                        <li><a href="#" class="text-white text-decoration-none">Terms of Service</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">Privacy Policy</a></li>
+                        <li><a href="#" class="text-white text-decoration-none">Cookies</a></li>
+                    </ul>
+                </div>
+            </div>
+            <hr class="mt-4 mb-4 border-secondary">
+            <div class="text-center">
+                <p class="mb-0">&copy; 2023 SustainableFashionChain. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <button id="scrollTopBtn" title="Go to top"><i class="bi bi-arrow-up"></i></button>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Scroll to top button
+        window.onscroll = function() {scrollFunction()};
+
+        function scrollFunction() {
+            if (document.body.scrollTop > 20 || document.documentElement.scrollTop > 20) {
+                document.getElementById("scrollTopBtn").style.display = "block";
+            } else {
+                document.getElementById("scrollTopBtn").style.display = "none";
+            }
+        }
+
+        document.getElementById("scrollTopBtn").addEventListener("click", function() {
+            document.body.scrollTop = 0; // For Safari
+            document.documentElement.scrollTop = 0; // For Chrome, Firefox, IE and Opera
+        });
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+
+                const targetId = this.getAttribute('href');
+                const targetElement = document.querySelector(targetId);
+
+                if (targetElement) {
+                    targetElement.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

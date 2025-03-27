@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.18;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./CotToken.sol";
@@ -13,7 +14,7 @@ import "./ProductNFT.sol";
  * This contract optimizes gas usage and improves scalability by batching transactions
  * and using a state channel mechanism for high-frequency updates
  */
-contract SidechainBridge is AccessControl, Pausable {
+contract SidechainBridge is AccessControlEnumerable, Pausable {
     bytes32 public constant BRIDGE_ROLE = keccak256("BRIDGE_ROLE");
     bytes32 public constant VALIDATOR_ROLE = keccak256("VALIDATOR_ROLE");
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
@@ -50,6 +51,24 @@ contract SidechainBridge is AccessControl, Pausable {
     event NFTReleasedFromSidechain(address indexed user, uint256 tokenId, bytes32 txHash);
     event StateChannelOpened(address indexed user, uint256 deposit, uint256 timestamp);
     event StateChannelClosed(address indexed user, uint256 finalAmount, uint256 timestamp);
+
+    struct BatchData {
+        string fabricBatchId;
+        string fabricId;
+        uint256 amountCertified;
+        address certifier;
+    }
+
+    mapping(string => BatchData) public batchData;
+    mapping(string => string) public fabricIdToBatchId;
+
+    function getBatchData(string memory batchId) external view returns (BatchData memory) {
+        return batchData[batchId];
+    }
+
+    function getBatchIdFromFabricId(string memory fabricId) public view returns (string memory) {
+        return fabricIdToBatchId[fabricId];
+    }
 
     /**
      * @dev Constructor

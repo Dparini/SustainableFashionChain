@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Documentation - SustainableFashionChain</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .docs-header {
+            background-color: #212529;
+            color: white;
+            padding: 60px 0;
+            margin-bottom: 40px;
+        }
+        .version-badge {
+            background-color: #198754;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            margin-left: 10px;
+            font-size: 0.9rem;
+        }
+        .endpoint-card {
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .endpoint-header {
+            padding: 15px;
+            display: flex;
+            align-items: center;
+        }
+        .endpoint-body {
+            padding: 20px;
+            background-color: white;
+            border-top: 1px solid #dee2e6;
+        }
+        .method-badge {
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin-right: 15px;
+            min-width: 80px;
+            text-align: center;
+        }
+        .get-badge { background-color: #0dcaf0; color: white; }
+        .post-badge { background-color: #198754; color: white; }
+        .put-badge { background-color: #fd7e14; color: white; }
+        .delete-badge { background-color: #dc3545; color: white; }
+
+        .param-table {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .param-table th, .param-table td {
+            padding: 10px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .param-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        .param-required {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        .param-optional {
+            color: #6c757d;
+        }
+
+        .response-example {
+            background-color: #212529;
+            color: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            white-space: pre;
+            overflow-x: auto;
+        }
+
+        .nav-pills .nav-link.active {
+            background-color: #198754;
+        }
+
+        .section-title {
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #198754;
+        }
+
+        .auth-card {
+            background-color: #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-success">
+        <div class="container">
+            <a class="navbar-brand" href="/">
+                SustainableFashionChain
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/analytics">Analytics</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/batches">Batches</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/products">Products</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/api-docs">API Docs</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <header class="docs-header">
+        <div class="container text-center">
+            <h1>SustainableFashionChain API <span class="version-badge">v1.0</span></h1>
+            <p class="lead">Comprehensive RESTful API documentation for integrating with our blockchain platform</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <div class="row">
+            <div class="col-md-3 mb-4">
+                <div class="sticky-top pt-4">
+                    <div class="card">
+                        <div class="card-header bg-dark text-white">
+                            API Sections
+                        </div>
+                        <div class="card-body p-0">
+                            <nav class="nav flex-column nav-pills">
+                                <a class="nav-link" href="#introduction">Introduction</a>
+                                <a class="nav-link" href="#authentication">Authentication</a>
+                                <a class="nav-link" href="#batches">Cotton Batches</a>
+                                <a class="nav-link" href="#certifications">Certifications</a>
+                                <a class="nav-link" href="#products">Products</a>
+                                <a class="nav-link" href="#tokenization">Tokenization</a>
+                                <a class="nav-link" href="#nft">NFT Operations</a>
+                                <a class="nav-link" href="#verification">Product Verification</a>
+                                <a class="nav-link" href="#errors">Error Handling</a>
+                                <a class="nav-link" href="#rate-limits">Rate Limits</a>
+                            </nav>
+                        </div>
+                    </div>
+
+                    <div class="card mt-4">
+                        <div class="card-header bg-success text-white">
+                            Resources
+                        </div>
+                        <div class="card-body">
+                            <ul class="list-unstyled mb-0">
+                                <li class="mb-2">
+                                    <a href="#" class="text-decoration-none">
+                                        <i class="bi bi-file-earmark-text me-2"></i>API Reference
+                                    </a>
+                                </li>
+                                <li class="mb-2">
+                                    <a href="#" class="text-decoration-none">
+                                        <i class="bi bi-journal-code me-2"></i>Developer Guide
+                                    </a>
+                                </li>
+                                <li class="mb-2">
+                                    <a href="#" class="text-decoration-none">
+                                        <i class="bi bi-github me-2"></i>SDK & Examples
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="#" class="text-decoration-none">
+                                        <i class="bi bi-question-circle me-2"></i>Support
+                                    </a>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-9">
+                <div class="card mb-5">
+                    <div class="card-body p-4">
+                        <div id="introduction">
+                            <h2 class="section-title">Introduction</h2>
+                            <p>The SustainableFashionChain API provides programmatic access to our blockchain-based platform for tracking sustainable cotton and fashion products. This RESTful API allows developers to integrate with our system, accessing information about cotton batches, products, certifications, and tokenization.</p>
+
+                            <div class="alert alert-info">
+                                <h5><i class="bi bi-info-circle me-2"></i>Base URL</h5>
+                                <p class="mb-0"><code>https://api.sustainablefashionchain.com/api/v1</code></p>
+                            </div>
+
+                            <p>All API endpoints are relative to this base URL. For example, to access the batches endpoint, use <code>https://api.sustainablefashionchain.com/api/v1/batches</code>.</p>
+                        </div>
+
+                        <div id="authentication">
+                            <h2 class="section-title">Authentication</h2>
+                            <p>SustainableFashionChain API uses a token-based authentication system. To access protected endpoints, you'll need to include an authorization token in your requests.</p>
+
+                            <div class="auth-card">
+                                <h5>Step 1: Obtain API Key</h5>
+                                <p>Register for an API key in the <a href="#">developer portal</a>.</p>
+
+                                <h5>Step 2: Request JWT Token</h5>
+                                <div class="response-example">
+POST /token
+Content-Type: application/json
+X-API-Key: your_api_key
+
+// Response
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expires_in": 3600,
+  "token_type": "Bearer"
+}</div>
+
+                                <h5>Step 3: Use JWT Token in Requests</h5>
+                                <div class="response-example">
+GET /batches
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...</div>
+                            </div>
+
+                            <p>Tokens expire after 1 hour. You'll need to request a new token once the current one expires.</p>
+                        </div>
+
+                        <div id="batches">
+                            <h2 class="section-title">Cotton Batches</h2>
+                            <p>Endpoints for managing cotton batches in the supply chain.</p>
+
+                            <!-- GET /batches -->
+                            <div class="endpoint-card">
+                                <div class="endpoint-header">
+                                    <span class="method-badge get-badge">GET</span>
+                                    <strong>/batches</strong>
+                                </div>
+                                <div class="endpoint-body">
+                                    <p>Returns a list of all cotton batches in the system.</p>
+
+                                    <h5>Query Parameters</h5>
+                                    <table class="param-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Parameter</th>
+                                                <th>Type</th>
+                                                <th>Description</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>status</td>
+                                                <td><span class="param-optional">string</span></td>
+                                                <td>Filter by batch status (e.g., Harvested, Processing, Stored)</td>
+                                            </tr>
+                                            <tr>
+                                                <td>organic</td>
+                                                <td><span class="param-optional">boolean</span></td>
+                                                <td>Filter for organic batches (true/false)</td>
+                                            </tr>
+                                            <tr>
+                                                <td>fairTrade</td>
+                                                <td><span class="param-optional">boolean</span></td>
+                                                <td>Filter for fair trade batches (true/false)</td>
+                                            </tr>
+                                            <tr>
+                                                <td>farmId</td>
+                                                <td><span class="param-optional">string</span></td>
+                                                <td>Filter by farm ID</td>
+                                            </tr>
+                                            <tr>
+                                                <td>limit</td>
+                                                <td><span class="param-optional">integer</span></td>
+                                                <td>Maximum number of results (default: 20, max: 100)</td>
+                                            </tr>
+                                            <tr>
+                                                <td>offset</td>
+                                                <td><span class="param-optional">integer</span></td>
+                                                <td>Number of results to skip (for pagination)</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h5>Response Example</h5>
+                                    <div class="response-example">
+{
+  "total": 42,
+  "limit": 20,
+  "offset": 0,
+  "batches": [
+    {
+      "id": "batch_12345",
+      "farmId": "farm_001",
+      "quantity": 500,
+      "organic": true,
+      "fairTrade": true,
+      "harvestDate": "2023-04-15T00:00:00Z",
+      "location": "Gujarat, India",
+      "currentCustody": "warehouse_001",
+      "status": "Stored",
+      "certifications": ["cert_001", "cert_002"],
+      "tokenizationId": "0x1234...",
+      "history": [
+        {
+          "timestamp": "2023-04-15T10:30:00Z",
+          "type": "Creation",
+          "actor": "farm_001",
+          "details": "Cotton batch registered on blockchain"
+        },
+        // Additional history events...
+      ]
+    },
+    // Additional batches...
+  ]
+}</div>
+                                </div>
+                            </div>
+
+                            <!-- GET /batches/:id -->
+                            <div class="endpoint-card">
+                                <div class="endpoint-header">
+                                    <span class="method-badge get-badge">GET</span>
+                                    <strong>/batches/:id</strong>
+                                </div>
+                                <div class="endpoint-body">
+                                    <p>Returns detailed information about a specific cotton batch.</p>
+
+                                    <h5>Path Parameters</h5>
+                                    <table class="param-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Parameter</th>
+                                                <th>Type</th>
+                                                <th>Description</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>id</td>
+                                                <td><span class="param-required">string</span></td>
+                                                <td>Unique identifier of the batch</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h5>Response Example</h5>
+                                    <div class="response-example">
+{
+  "id": "batch_12345",
+  "farmId": "farm_001",
+  "quantity": 500,
+  "organic": true,
+  "fairTrade": true,
+  "harvestDate": "2023-04-15T00:00:00Z",
+  "location": "Gujarat, India",
+  "currentCustody": "warehouse_001",
+  "status": "Stored",
+  "certifications": ["cert_001", "cert_002"],
+  "tokenizationId": "0x1234...",
+  "history": [
+    {
+      "timestamp": "2023-04-15T10:30:00Z",
+      "type": "Creation",
+      "actor": "farm_001",
+      "details": "Cotton batch registered on blockchain"
+    },
+    // Additional history events...
+  ]
+}</div>
+                                </div>
+                            </div>
+
+                            <!-- POST /batches -->
+                            <div class="endpoint-card">
+                                <div class="endpoint-header">
+                                    <span class="method-badge post-badge">POST</span>
+                                    <strong>/batches</strong>
+                                </div>
+                                <div class="endpoint-body">
+                                    <p>Creates a new cotton batch in the system.</p>
+
+                                    <h5>Request Parameters</h5>
+                                    <table class="param-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Parameter</th>
+                                                <th>Type</th>
+                                                <th>Description</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>id</td>
+                                                <td><span class="param-required">string</span></td>
+                                                <td>Unique identifier for the batch</td>
+                                            </tr>
+                                            <tr>
+                                                <td>farmID</td>
+                                                <td><span class="param-required">string</span></td>
+                                                <td>ID of the farm where the cotton was grown</td>
+                                            </tr>
+                                            <tr>
+                                                <td>quantity</td>
+                                                <td><span class="param-required">number</span></td>
+                                                <td>Quantity of cotton in kilograms</td>
+                                            </tr>
+                                            <tr>
+                                                <td>organic</td>
+                                                <td><span class="param-required">boolean</span></td>
+                                                <td>Whether the cotton is organically grown</td>
+                                            </tr>
+                                            <tr>
+                                                <td>fairTrade</td>
+                                                <td><span class="param-required">boolean</span></td>
+                                                <td>Whether the cotton is fair trade certified</td>
+                                            </tr>
+                                            <tr>
+                                                <td>harvestDate</td>
+                                                <td><span class="param-required">string</span></td>
+                                                <td>Date when the cotton was harvested (ISO 8601 format)</td>
+                                            </tr>
+                                            <tr>
+                                                <td>location</td>
+                                                <td><span class="param-required">string</span></td>
+                                                <td>Geographic location where the cotton was grown</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+
+                                    <h5>Request Example</h5>
+                                    <div class="response-example">
+POST /batches
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+{
+  "id": "batch_12345",
+  "farmID": "farm_001",
+  "quantity": 500,
+  "organic": true,
+  "fairTrade": true,
+  "harvestDate": "2023-04-15T00:00:00Z",
+  "location": "Gujarat, India"
+}</div>
+
+                                    <h5>Response Example</h5>
+                                    <div class="response-example">
+{
+  "message": "Batch created successfully",
+  "id": "batch_12345"
+}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Additional API sections would be added here with similar structure -->
+                        <div id="certifications">
+                            <h2 class="section-title">Certifications</h2>
+                            <p>Endpoints for managing certifications associated with cotton batches.</p>
+                            <!-- Certification endpoints would be documented here -->
+                        </div>
+
+                        <div id="products">
+                            <h2 class="section-title">Products</h2>
+                            <p>Endpoints for managing fashion products created from tracked cotton batches.</p>
+                            <!-- Product endpoints would be documented here -->
+                        </div>
+
+                        <div id="tokenization">
+                            <h2 class="section-title">Tokenization</h2>
+                            <p>Endpoints for tokenizing cotton batches on the Ethereum blockchain.</p>
+                            <!-- Tokenization endpoints would be documented here -->
+                        </div>
+
+                        <div id="nft">
+                            <h2 class="section-title">NFT Operations</h2>
+                            <p>Endpoints for managing product NFTs on the Ethereum blockchain.</p>
+                            <!-- NFT-related endpoints would be documented here -->
+                        </div>
+
+                        <div id="verification">
+                            <h2 class="section-title">Product Verification</h2>
+                            <p>Endpoints for verifying the authenticity of fashion products.</p>
+                            <!-- Verification endpoints would be documented here -->
+                        </div>
+
+                        <div id="errors">
+                            <h2 class="section-title">Error Handling</h2>
+                            <p>The API uses standard HTTP status codes to indicate the success or failure of a request. Error responses include additional information to help troubleshoot issues.</p>
+
+                            <h5>Common Error Codes</h5>
+                            <table class="param-table">
+                                <thead>
+                                    <tr>
+                                        <th>Status Code</th>
+                                        <th>Description</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>400</td>
+                                        <td>Bad Request - The request was malformed or contained invalid parameters</td>
+                                    </tr>
+                                    <tr>
+                                        <td>401</td>
+                                        <td>Unauthorized - Authentication is required or failed</td>
+                                    </tr>
+                                    <tr>
+                                        <td>403</td>
+                                        <td>Forbidden - The authenticated user doesn't have permission for the requested operation</td>
+                                    </tr>
+                                    <tr>
+                                        <td>404</td>
+                                        <td>Not Found - The requested resource doesn't exist</td>
+                                    </tr>
+                                    <tr>
+                                        <td>429</td>
+                                        <td>Too Many Requests - Rate limit exceeded</td>
+                                    </tr>
+                                    <tr>
+                                        <td>500</td>
+                                        <td>Internal Server Error - An unexpected error occurred on the server</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <h5>Error Response Example</h5>
+                            <div class="response-example">
+{
+  "error": {
+    "code": 400,
+    "message": "Invalid request parameters",
+    "details": "Quantity must be a positive number"
+  }
+}</div>
+                        </div>
+
+                        <div id="rate-limits">
+                            <h2 class="section-title">Rate Limits</h2>
+                            <p>To ensure service stability, the API enforces rate limits on requests. Rate limits vary based on your API key plan.</p>
+
+                            <h5>Rate Limit Tiers</h5>
+                            <table class="param-table">
+                                <thead>
+                                    <tr>
+                                        <th>Plan</th>
+                                        <th>Requests per Minute</th>
+                                        <th>Requests per Hour</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>Basic</td>
+                                        <td>60</td>
+                                        <td>1,000</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Professional</td>
+                                        <td>300</td>
+                                        <td>10,000</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Enterprise</td>
+                                        <td>1,000</td>
+                                        <td>100,000</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <p>Rate limit information is included in the response headers:</p>
+                            <div class="response-example">
+X-RateLimit-Limit: 60
+X-RateLimit-Remaining: 58
+X-RateLimit-Reset: 1620000000</div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-dark text-white text-center py-4 mt-5">
+        <div class="container">
+            <p class="mb-2">SustainableFashionChain - A Blockchain-Based Platform for Ethical Fashion Traceability</p>
+            <p class="mb-0 small">© 2023 SustainableFashionChain. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Highlight the active section in the navigation
+            const navLinks = document.querySelectorAll('.nav-link');
+
+            // Add active class on click
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    navLinks.forEach(navLink => navLink.classList.remove('active'));
+                    this.classList.add('active');
+                });
+            });
+
+            // Highlight section on scroll
+            window.addEventListener('scroll', function() {
+                let current = '';
+
+                const sections = document.querySelectorAll('div[id]');
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop - 100;
+                    const sectionHeight = section.clientHeight;
+
+                    if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
+                        current = section.getAttribute('id');
+                    }
+                });
+
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === `#${current}`) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>

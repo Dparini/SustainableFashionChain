@@ -12,8 +12,8 @@ describe("CotToken", function () {
     CotToken = await ethers.getContractFactory("CotToken");
     [owner, addr1, addr2, _] = await ethers.getSigners();
 
-    cotToken = await CotToken.deploy();
-    await cotToken.deployed();
+    cotToken = await CotToken.deploy(owner.address);
+    await cotToken.waitForDeployment();
   });
 
   describe("Deployment", function () {
@@ -33,13 +33,14 @@ describe("CotToken", function () {
 
   describe("Transactions", function () {
     const testFabricId = "TEST-FABRIC-001";
-    const amount = ethers.utils.parseEther("100");
     const metadata = JSON.stringify({
       origin: "Test Farm",
       certifications: ["Organic"],
     });
 
     it("Should allow owner to register certified cotton", async function () {
+      const amount = ethers.utils.parseEther("1");
+
       await expect(
         cotToken.registerCertifiedCotton(testFabricId, amount, metadata)
       )
@@ -52,12 +53,16 @@ describe("CotToken", function () {
     });
 
     it("Should not allow non-owners to register cotton", async function () {
+      const amount = ethers.utils.parseEther("1");
+
       await expect(
         cotToken.connect(addr1).registerCertifiedCotton(testFabricId, amount, metadata)
       ).to.be.revertedWith("Ownable: caller is not the owner");
     });
 
     it("Should not allow registering the same fabric ID twice", async function () {
+      const amount = ethers.utils.parseEther("1");
+
       await cotToken.registerCertifiedCotton(testFabricId, amount, metadata);
 
       await expect(
@@ -66,14 +71,12 @@ describe("CotToken", function () {
     });
 
     it("Should allow token holders to redeem cotton", async function () {
-      // Register cotton first
-      await cotToken.registerCertifiedCotton(testFabricId, amount, metadata);
+      const amount = ethers.utils.parseEther("1");
+      const redeemAmount = ethers.utils.parseEther("1");
 
-      // Transfer some tokens to addr1
-      const redeemAmount = ethers.utils.parseEther("50");
+      await cotToken.registerCertifiedCotton(testFabricId, amount, metadata);
       await cotToken.transfer(addr1.address, redeemAmount);
 
-      // Redeem tokens
       await expect(
         cotToken.connect(addr1).redeemCotton(1, redeemAmount)
       )
@@ -85,15 +88,13 @@ describe("CotToken", function () {
     });
 
     it("Should not allow redeeming more tokens than owned", async function () {
-      // Register cotton first
-      await cotToken.registerCertifiedCotton(testFabricId, amount, metadata);
+      const amount = ethers.utils.parseEther("1");
+      const transferAmount = ethers.utils.parseEther("1");
+      const redeemAmount = ethers.utils.parseEther("1");
 
-      // Transfer some tokens to addr1
-      const transferAmount = ethers.utils.parseEther("50");
+      await cotToken.registerCertifiedCotton(testFabricId, amount, metadata);
       await cotToken.transfer(addr1.address, transferAmount);
 
-      // Try to redeem more than owned
-      const redeemAmount = ethers.utils.parseEther("60");
       await expect(
         cotToken.connect(addr1).redeemCotton(1, redeemAmount)
       ).to.be.revertedWith("Insufficient balance");
