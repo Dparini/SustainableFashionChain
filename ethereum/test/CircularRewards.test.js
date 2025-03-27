@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { parseEther } = require("ethers");
 
 describe("CircularRewards", function () {
   let CotToken;
@@ -96,7 +97,7 @@ describe("CircularRewards", function () {
       });
 
       expect(recycleConfig.actionType).to.equal("Recycle");
-      expect(recycleConfig.baseReward).to.equal(ethers.parseEther("50"));
+      expect(recycleConfig.baseReward).to.equal(parseEther("50"));
       expect(recycleConfig.active).to.equal(true);
 
       // Check the number of action types
@@ -107,12 +108,12 @@ describe("CircularRewards", function () {
   describe("Reward Configuration", function () {
     it("Should allow admin to add a new reward config", async function () {
       // Add a new reward type
-      await circularRewards.connect(owner).addRewardConfig("Donate", ethers.parseEther("10"));
+      await circularRewards.connect(owner).addRewardConfig("Donate", parseEther("10"));
 
       // Check that it was added correctly
       const donateConfig = await circularRewards.rewardConfigs("Donate");
       expect(donateConfig.actionType).to.equal("Donate");
-      expect(donateConfig.baseReward).to.equal(ethers.parseEther("10"));
+      expect(donateConfig.baseReward).to.equal(parseEther("10"));
       expect(donateConfig.active).to.equal(true);
 
       // Check that the action type count increased
@@ -121,7 +122,7 @@ describe("CircularRewards", function () {
 
     it("Should fail if non-admin tries to add a reward config", async function () {
       await expect(
-        circularRewards.connect(addr1).addRewardConfig("Donate", ethers.parseEther("10"))
+        circularRewards.connect(addr1).addRewardConfig("Donate", parseEther("10"))
       ).to.be.reverted;
     });
 
@@ -129,20 +130,20 @@ describe("CircularRewards", function () {
       // Update the Recycle reward
       await circularRewards.connect(owner).updateRewardConfig(
         "Recycle",
-        ethers.parseEther("75"),
+        parseEther("75"),
         true
       );
 
       // Check that it was updated correctly
       const recycleConfig = await circularRewards.rewardConfigs("Recycle");
-      expect(recycleConfig.baseReward).to.equal(ethers.parseEther("75"));
+      expect(recycleConfig.baseReward).to.equal(parseEther("75"));
     });
 
     it("Should allow admin to deactivate a reward config", async function () {
       // Deactivate the Repair reward
       await circularRewards.connect(owner).updateRewardConfig(
         "Repair",
-        ethers.parseEther("20"),
+        parseEther("20"),
         false
       );
 
@@ -176,7 +177,7 @@ describe("CircularRewards", function () {
       console.log("Transaction succeeded with status:", receipt.status);
 
       // Check that tokens were minted to the consumer
-      const rewardAmount = ethers.parseEther("50"); // Default reward for recycling
+      const rewardAmount = parseEther("50");
       expect(await cotToken.balanceOf(consumer.address)).to.equal(rewardAmount);
 
       // Check that the product was marked as recycled
@@ -197,7 +198,7 @@ describe("CircularRewards", function () {
       );
 
       // Check that tokens were minted to the consumer
-      const rewardAmount = ethers.parseEther("20"); // Default reward for repair
+      const rewardAmount = parseEther("20"); // Default reward for repair
       expect(await cotToken.balanceOf(consumer.address)).to.equal(rewardAmount);
 
       // Check that the product was NOT marked as recycled (repair doesn't recycle)
@@ -220,7 +221,7 @@ describe("CircularRewards", function () {
       // Deactivate the Repair reward
       await circularRewards.connect(owner).updateRewardConfig(
         "Repair",
-        ethers.parseEther("20"),
+        parseEther("20"),
         false
       );
 

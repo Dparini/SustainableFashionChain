@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { expect } = require('chai');
 const { ethers } = require("hardhat");
+const { parseEther } = require("ethers");
 
 // Constants and configuration
 const API_URL = 'http://localhost:3000/api';
@@ -48,8 +49,8 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
       // Setup Ethereum connection
       provider = new ethers.JsonRpcProvider(ETHEREUM_PROVIDER_URL);
       const accounts = await provider.listAccounts();
-      wallet = provider.getSigner(accounts[0]);
-      walletAddress = await wallet.getAddress();
+      walletAddress = accounts[0];
+      wallet = provider.getSigner(walletAddress);
 
       cotToken = new ethers.Contract(COT_TOKEN_ADDRESS, CotTokenABI, wallet);
       productNFT = new ethers.Contract(PRODUCT_NFT_ADDRESS, ProductNFTABI, wallet);
@@ -60,7 +61,7 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
     }
   });
 
-  it('should register a product in Fabric', async () => {
+  it('should register a product in Fabric', async function () {
     // Skip this test if the API server is not running
     try {
       const response = await axios.post(`${API_URL}/products`, testProduct);
@@ -75,7 +76,7 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
     }
   });
 
-  it('should retrieve the registered product', async () => {
+  it('should retrieve the registered product', async function () {
     try {
       const response = await axios.get(`${API_URL}/products/${testProduct.id}`);
 
@@ -89,7 +90,7 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
     }
   });
 
-  it('should update product status to CERTIFIED', async () => {
+  it('should update product status to CERTIFIED', async function () {
     try {
       const response = await axios.post(`${API_URL}/products/${testProduct.id}/status`, {
         newStatus: 'CERTIFIED',
@@ -126,7 +127,7 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
     }
   });
 
-  it('should transfer product custody to manufacturer', async () => {
+  it('should transfer product custody to manufacturer', async function () {
     try {
       const response = await axios.post(`${API_URL}/products/${testProduct.id}/transfer`, {
         newHolder: 'Manufacturer X',
@@ -142,7 +143,7 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
     }
   });
 
-  it('should update product status to FINISHED', async () => {
+  it('should update product status to FINISHED', async function () {
     try {
       const response = await axios.post(`${API_URL}/products/${testProduct.id}/status`, {
         newStatus: 'FINISHED',
@@ -160,7 +161,7 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
     }
   });
 
-  it('should mint an NFT for the finished product', async () => {
+  it('should mint an NFT for the finished product', async function () {
     try {
       const response = await axios.post(`${API_URL}/products/${testProduct.id}/mint-nft`, {
         ownerAddress: walletAddress,
@@ -188,7 +189,7 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
     }
   });
 
-  it('should initiate recycling for the product', async () => {
+  it('should initiate recycling for the product', async function () {
     try {
       // Get the token ID from the product data
       const productResponse = await axios.get(`${API_URL}/products/${testProduct.id}`);

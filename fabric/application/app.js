@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
@@ -24,7 +25,46 @@ const bridge = require("../../bridging/bridge");
 const notificationService = require('./notification-service');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.API_PORT || 3001;
+const server = app.listen(port, () => {
+    console.log(`App listening at http://localhost:${port}`);
+});
+
+// Modifica la funzione startServer per usare il server già dichiarato
+async function startServer() {
+    const connected = await connectToFabric();
+    if (!connected) {
+        console.log("Warning: Starting server without connection to Fabric network");
+    }
+
+    // Start bridge service
+    try {
+        await bridge.start();
+        console.log("Bridge service started successfully");
+    } catch (bridgeError) {
+        console.error(`Warning: Failed to start bridge service: ${bridgeError}`);
+    }
+
+    // Register process handlers for graceful shutdown
+    process.on('SIGINT', async () => {
+        console.log('Received SIGINT. Shutting down gracefully...');
+
+        if (gateway) {
+            gateway.disconnect();
+        }
+
+        try {
+            await bridge.stop();
+        } catch (error) {
+            console.error(`Error stopping bridge: ${error}`);
+        }
+
+        server.close(() => {
+            console.log('Server closed');
+            process.exit(0);
+        });
+    });
+}
 
 // Configure middleware
 app.use(cors());

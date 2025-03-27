@@ -29,6 +29,7 @@ contract CotToken is Context, ERC20, ERC20Burnable, AccessControl, Ownable {
     // Mapping from mint ID to batch data
     mapping(string => BatchData) public batchData;
     mapping(string => string) public fabricIdToBatchId;
+    mapping(address => bool) public bridges;
 
     // Array to store all batch IDs
     string[] public allBatchIds;
@@ -96,5 +97,14 @@ contract CotToken is Context, ERC20, ERC20Burnable, AccessControl, Ownable {
         emit BatchTokensMinted(batchId, amount, warehouseId);
     }
 
+    function addBridge(address bridge) external onlyOwner {
+        bridges[bridge] = true;
+    }
+
+    modifier onlyBridge() {
+        require(bridges[msg.sender], "CotToken: caller is not an authorized bridge");
+        _;
+    }
+
     // ... (rest of the previous contract remains the same)
-}
+ }

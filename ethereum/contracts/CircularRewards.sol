@@ -96,10 +96,12 @@ contract CircularRewards is Context, AccessControl {
         require(hasRole(VERIFIER_ROLE, _msgSender()), "CircularRewards: must have verifier role");
         require(rewardConfigs[actionType].baseReward > 0, "CircularRewards: invalid action type");
         require(rewardConfigs[actionType].active, "CircularRewards: action type is not active");
+
+        // Verify token ownership - either the user owns the token or we're relying on the BRIDGE_ROLE
+        // which has already been assigned to this contract
         require(
-            productNFT.ownerOf(tokenId) == user ||
-            productNFT.hasRole(productNFT.BRIDGE_ROLE(), address(this)),
-            "CircularRewards: invalid token ownership"
+            productNFT.ownerOf(tokenId) == user,
+            "CircularRewards: user must own the token"
         );
 
         uint256 rewardAmount = rewardConfigs[actionType].baseReward;
@@ -109,8 +111,14 @@ contract CircularRewards is Context, AccessControl {
 
         // Specifically handle recycling
         if (keccak256(abi.encodePacked(actionType)) == keccak256(abi.encodePacked("Recycle"))) {
-            // Explicitly call recycleProduct
-            productNFT.recycleProduct(tokenId);
+            // Explicitly call recycleProduct, which should work because we've been granted BRIDGE_ROLE
+            try productNFT.recycleProduct(tokenId) {
+                // Successfully recycled
+            } catch Error(string memory reason) {
+                // Log the error for debugging but continue processing the reward
+                // This is a graceful fallback in case of permission issues
+                revert(string(abi.encodePacked("CircularRewards: recycling failed: ", reason)));
+            }
         }
 
         // Store reward event

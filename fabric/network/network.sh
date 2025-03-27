@@ -20,78 +20,6 @@ DELAY="3"
 MAX_RETRY="5"
 VERBOSE="false"
 
-# Parse command line arguments
-while [[ $# -ge 1 ]] ; do
-  key="$1"
-  case $key in
-  -h )
-    printHelp
-    exit 0
-    ;;
-  -c )
-    CHANNEL_NAME="$2"
-    shift
-    ;;
-  -ccn )
-    CC_NAME="$2"
-    shift
-    ;;
-  -ccp )
-    CC_SRC_PATH="$2"
-    shift
-    ;;
-  -ccl )
-    CC_SRC_LANGUAGE="$2"
-    shift
-    ;;
-  -ccv )
-    CC_VERSION="$2"
-    shift
-    ;;
-  -ccs )
-    CC_SEQUENCE="$2"
-    shift
-    ;;
-  -cci )
-    CC_INIT_FCN="$2"
-    shift
-    ;;
-  -ccep )
-    CC_END_POLICY="$2"
-    shift
-    ;;
-  -cccg )
-    CC_COLL_CONFIG="$2"
-    shift
-    ;;
-  -v )
-    VERBOSE=true
-    ;;
-  up )
-    infoln "Starting network"
-    networkUp
-    ;;
-  down )
-    infoln "Stopping network"
-    networkDown
-    ;;
-  createChannel )
-    infoln "Creating channel ${CHANNEL_NAME}"
-    createChannel
-    ;;
-  deployCC )
-    infoln "Deploying chaincode ${CC_NAME}"
-    deployCC
-    ;;
-  * )
-    errorln "Unknown flag: $key"
-    printHelp
-    exit 1
-    ;;
-  esac
-  shift
-done
-
 # Define functions for network operations
 function networkUp() {
   # Make sure that the script knows where it is running from
@@ -177,6 +105,78 @@ function printHelp() {
   println "  -v - Verbose mode"
   println
 }
+
+# Parse command line arguments
+while [[ $# -ge 1 ]] ; do
+  key="$1"
+  case $key in
+  -h )
+    printHelp
+    exit 0
+    ;;
+  -c )
+    CHANNEL_NAME="$2"
+    shift
+    ;;
+  -ccn )
+    CC_NAME="$2"
+    shift
+    ;;
+  -ccp )
+    CC_SRC_PATH="$2"
+    shift
+    ;;
+  -ccl )
+    CC_SRC_LANGUAGE="$2"
+    shift
+    ;;
+  -ccv )
+    CC_VERSION="$2"
+    shift
+    ;;
+  -ccs )
+    CC_SEQUENCE="$2"
+    shift
+    ;;
+  -cci )
+    CC_INIT_FCN="$2"
+    shift
+    ;;
+  -ccep )
+    CC_END_POLICY="$2"
+    shift
+    ;;
+  -cccg )
+    CC_COLL_CONFIG="$2"
+    shift
+    ;;
+  -v )
+    VERBOSE=true
+    ;;
+  up )
+    infoln "Starting network"
+    networkUp
+    ;;
+  down )
+    infoln "Stopping network"
+    networkDown
+    ;;
+  createChannel )
+    infoln "Creating channel ${CHANNEL_NAME}"
+    createChannel
+    ;;
+  deployCC )
+    infoln "Deploying chaincode ${CC_NAME}"
+    deployCC
+    ;;
+  * )
+    errorln "Unknown flag: $key"
+    printHelp
+    exit 1
+    ;;
+  esac
+  shift
+done
 
 # Execute the script
 if [[ $# -lt 1 ]] ; then

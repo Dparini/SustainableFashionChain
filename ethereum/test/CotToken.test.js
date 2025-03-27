@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { parseEther } = require("ethers");
 
 describe("CotToken", function () {
   let CotToken;
@@ -39,65 +40,64 @@ describe("CotToken", function () {
     });
 
     it("Should allow owner to register certified cotton", async function () {
-      const amount = ethers.utils.parseEther("1");
+      const amount = parseEther("1");
 
       await expect(
-        cotToken.registerCertifiedCotton(testFabricId, amount, metadata)
+        cotToken.mintBatch(testFabricId, amount, "WH-001", owner.address)
       )
-        .to.emit(cotToken, "CertifiedCottonRegistered")
-        .withArgs(1, testFabricId, amount, metadata);
+        .to.emit(cotToken, "BatchTokensMinted")
+        .withArgs(testFabricId, amount, "WH-001");
 
       expect(await cotToken.balanceOf(owner.address)).to.equal(amount);
-      expect(await cotToken.fabricIdToBatchId(testFabricId)).to.equal(1);
-      expect(await cotToken.getBatchMetadata(1)).to.equal(metadata);
+      expect(await cotToken.fabricIdToBatchId(testFabricId)).to.equal(testFabricId);
     });
 
     it("Should not allow non-owners to register cotton", async function () {
-      const amount = ethers.utils.parseEther("1");
+      const amount = parseEther("1");
 
       await expect(
-        cotToken.connect(addr1).registerCertifiedCotton(testFabricId, amount, metadata)
-      ).to.be.revertedWith("Ownable: caller is not the owner");
+        cotToken.connect(addr1).mintBatch(testFabricId, amount, "WH-001", addr1.address)
+      ).to.be.revertedWith("CotToken: must have minter role to mint");
     });
 
     it("Should not allow registering the same fabric ID twice", async function () {
-      const amount = ethers.utils.parseEther("1");
+      const amount = parseEther("1");
 
-      await cotToken.registerCertifiedCotton(testFabricId, amount, metadata);
+      await cotToken.mintBatch(testFabricId, amount, "WH-001", owner.address);
 
       await expect(
-        cotToken.registerCertifiedCotton(testFabricId, amount, metadata)
-      ).to.be.revertedWith("Cotton batch already registered");
+        cotToken.mintBatch(testFabricId, amount, "WH-001", owner.address)
+      ).to.be.revertedWith("CotToken: batch ID already used");
     });
 
     it("Should allow token holders to redeem cotton", async function () {
-      const amount = ethers.utils.parseEther("1");
-      const redeemAmount = ethers.utils.parseEther("1");
+      const amount = 1000000000000000000n;
+      const redeemAmount = 1000000000000000000n;
 
-      await cotToken.registerCertifiedCotton(testFabricId, amount, metadata);
+      await cotToken.mintBatch(testFabricId, amount, "WH-001", owner.address);
       await cotToken.transfer(addr1.address, redeemAmount);
 
       await expect(
-        cotToken.connect(addr1).redeemCotton(1, redeemAmount)
+        cotToken.connect(addr1).burn(redeemAmount)
       )
-        .to.emit(cotToken, "CottonRedeemed")
-        .withArgs(1, redeemAmount, addr1.address);
+        .to.emit(cotToken, "Transfer")
+        .withArgs(addr1.address, ethers.ZeroAddress, redeemAmount);
 
       expect(await cotToken.balanceOf(addr1.address)).to.equal(0);
-      expect(await cotToken.totalSupply()).to.equal(amount.sub(redeemAmount));
+      expect(await cotToken.totalSupply()).to.equal(amount - redeemAmount);
     });
 
     it("Should not allow redeeming more tokens than owned", async function () {
-      const amount = ethers.utils.parseEther("1");
-      const transferAmount = ethers.utils.parseEther("1");
-      const redeemAmount = ethers.utils.parseEther("1");
+      const amount = parseEther("1");
+      const transferAmount = parseEther("1");
+      const redeemAmount = 2000000000000000000n;
 
-      await cotToken.registerCertifiedCotton(testFabricId, amount, metadata);
+      await cotToken.mintBatch(testFabricId, amount, "WH-001", owner.address);
       await cotToken.transfer(addr1.address, transferAmount);
 
       await expect(
-        cotToken.connect(addr1).redeemCotton(1, redeemAmount)
-      ).to.be.revertedWith("Insufficient balance");
+        cotToken.connect(addr1).burn(redeemAmount)
+      ).to.be.revertedWith("ERC20: burn amount exceeds balance");
     });
   });
 });

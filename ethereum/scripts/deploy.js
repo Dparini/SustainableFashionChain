@@ -12,48 +12,33 @@ async function main() {
   console.log("Deploying CotToken...");
   const CotToken = await hre.ethers.getContractFactory("CotToken");
   const cotToken = await CotToken.deploy(deployer.address);
-  await cotToken.deployed();
-  console.log("CotToken deployed to:", cotToken.address);
+  await cotToken.waitForDeployment();
+  console.log("CotToken deployed to:", await cotToken.getAddress());
 
   // Deploy ProductNFT
   console.log("Deploying ProductNFT...");
   const ProductNFT = await hre.ethers.getContractFactory("ProductNFT");
   const productNFT = await ProductNFT.deploy(deployer.address);
-  await productNFT.deployed();
-  console.log("ProductNFT deployed to:", productNFT.address);
+  await productNFT.waitForDeployment();
+  console.log("ProductNFT deployed to:", await productNFT.getAddress());
 
   // Deploy CircularRewards
   console.log("Deploying CircularRewards...");
   const CircularRewards = await hre.ethers.getContractFactory("CircularRewards");
   const circularRewards = await CircularRewards.deploy(
     deployer.address,
-    productNFT.address,
-    cotToken.address
+    await productNFT.getAddress(),
+    await cotToken.getAddress()
   );
-  await circularRewards.deployed();
-  console.log("CircularRewards deployed to:", circularRewards.address);
-
-  // Grant roles
-  console.log("Granting roles...");
-
-  // Grant minter role on CotToken to CircularRewards
-  const minterRole = await cotToken.MINTER_ROLE();
-  const addMinterTx = await cotToken.addMinter(circularRewards.address);
-  await addMinterTx.wait();
-  console.log("Granted minter role on CotToken to CircularRewards");
-
-  // Grant bridge role on ProductNFT to CircularRewards
-  const bridgeRole = await productNFT.BRIDGE_ROLE();
-  const addBridgeTx = await productNFT.addBridge(circularRewards.address);
-  await addBridgeTx.wait();
-  console.log("Granted bridge role on ProductNFT to CircularRewards");
+  await circularRewards.waitForDeployment();
+  console.log("CircularRewards deployed to:", await circularRewards.getAddress());
 
   // Save the contract addresses
   saveDeployment({
     network: network.name,
-    cotToken: cotToken.address,
-    productNFT: productNFT.address,
-    circularRewards: circularRewards.address,
+    cotToken: await cotToken.getAddress(),
+    productNFT: await productNFT.getAddress(),
+    circularRewards: await circularRewards.getAddress(),
     deployer: deployer.address,
     timestamp: new Date().toISOString()
   });
@@ -71,6 +56,17 @@ function saveDeployment(deploymentInfo) {
   if (!fs.existsSync(deploymentsDir)) {
     fs.mkdirSync(deploymentsDir);
   }
+
+  // Also save to contract-addresses.json in the root directory
+  fs.writeFileSync(
+    path.join(__dirname, '../contract-addresses.json'),
+    JSON.stringify({
+      CotToken: deploymentInfo.cotToken,
+      ProductNFT: deploymentInfo.productNFT,
+      CircularRewards: deploymentInfo.circularRewards,
+      deployer: deploymentInfo.deployer
+    }, null, 2)
+  );
 
   // Write deployment info to file
   const filePath = path.join(deploymentsDir, `${deploymentInfo.network}.json`);

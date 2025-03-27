@@ -1,5 +1,6 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
+const { parseEther } = require("ethers");
 
 describe("ProductNFT", function () {
   let ProductNFT;
@@ -154,14 +155,9 @@ describe("ProductNFT", function () {
     it("Should not allow recycling a product twice", async function () {
       // First recycling
       await productNFT.connect(addr1).recycleProduct(1n);
-
-      // Try to recycle again - this test was modified to check that the recycled state
-      // remains true after a second recycling attempt, as our contract doesn't prevent
-      // recycling a product twice
-      await productNFT.connect(addr1).recycleProduct(1n);
-
-      const productData = await productNFT.productData(1n);
-      expect(productData.recycled).to.equal(true);
+      await expect(
+        productNFT.connect(addr1).recycleProduct(1n)
+      ).to.be.revertedWith("ProductNFT: product already recycled");
     });
   });
 });
