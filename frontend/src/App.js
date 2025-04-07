@@ -172,7 +172,7 @@ const dashboard = () => {
   );
 };
 
-export default dashboard;
+export { dashboard }
 
 // Sample Product Registration Component (frontend/src/pages/RegisterProduct.js)
 
