@@ -1,27 +1,23 @@
 import React, { useState } from 'react';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
-import {
-  AppBar,
-  Box,
-  Drawer,
-  IconButton,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Toolbar,
-  Typography,
-  Divider,
-} from '@mui/material';
-import {
-  Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  Inventory as InventoryIcon,
-  AddCircle as AddCircleIcon,
-  Token as TokenIcon,
-  Image as ImageIcon,
-} from '@mui/icons-material';
+import AppBar from '@mui/material/AppBar';
+import Box from '@mui/material/Box';
+import Drawer from '@mui/material/Drawer';
+import IconButton from '@mui/material/IconButton';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
+import Divider from '@mui/material/Divider';
+import MenuIcon from '@mui/icons-material/Menu';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import InventoryIcon from '@mui/icons-material/Inventory';
+import AddCircleIcon from '@mui/icons-material/AddCircle';
+import TokenIcon from '@mui/icons-material/Token';
+import ImageIcon from '@mui/icons-material/Image';
 
 const drawerWidth = 240;
 
@@ -39,6 +35,14 @@ function Layout({ children }) {
     { text: 'Register Product', icon: <AddCircleIcon />, path: '/register' },
     { text: 'Tokens', icon: <TokenIcon />, path: '/tokens' },
     { text: 'Product NFTs', icon: <ImageIcon />, path: '/nfts' },
+    { text: 'Supply chain', icon: <InventoryIcon />, path: '/supply-chain' },
+    { text: 'Sustainability', icon: <DashboardIcon />, path: '/sustainability' },
+    { text: 'Circular economy', icon: <InventoryIcon />, path: '/circular-economy' },
+    { text: 'Verify product', icon: <InventoryIcon />, path: '/verify' },
+    { text: 'Scan QR code', icon: <ImageIcon />, path: '/scan' },
+    { text: 'Marketplace', icon: <TokenIcon />, path: '/marketplace' },
+    { text: 'Governance', icon: <DashboardIcon />, path: '/governance' },
+    { text: 'Sign in', icon: <MenuIcon />, path: '/login' },
   ];
 
   const drawer = (
@@ -55,6 +59,7 @@ function Layout({ children }) {
             <ListItemButton
               component={RouterLink}
               to={item.path}
+              onClick={() => setMobileOpen(false)}
               selected={location.pathname === item.path}
             >
               <ListItemIcon>{item.icon}</ListItemIcon>

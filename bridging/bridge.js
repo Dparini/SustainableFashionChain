@@ -99,7 +99,7 @@ class OptimizedBridge extends EventEmitter {
       await this.connectToFabric();
 
       // Set up event listeners
-      this.setupEventListeners();
+      await this.setupEventListeners();
 
       // Start the batch timer
       this.startBatchTimer();
@@ -120,13 +120,13 @@ class OptimizedBridge extends EventEmitter {
       logger.info('Connecting to Ethereum networks...');
 
       // Connect to mainnet (or testnet)
-      this.provider = new ethers.providers.JsonRpcProvider(this.config.ethereumRpcUrl);
+      this.provider = new ethers.JsonRpcProvider(this.config.ethereumRpcUrl);
 
       // Load wallet from private key or mnemonic
       if (this.config.ethereumPrivateKey) {
         this.wallet = new ethers.Wallet(this.config.ethereumPrivateKey, this.provider);
       } else if (this.config.ethereumMnemonic) {
-        this.wallet = ethers.Wallet.fromMnemonic(this.config.ethereumMnemonic);
+        this.wallet = ethers.Wallet.fromPhrase(this.config.ethereumMnemonic);
         this.wallet = this.wallet.connect(this.provider);
       } else {
         throw new Error('Ethereum private key or mnemonic is required');
@@ -160,7 +160,7 @@ class OptimizedBridge extends EventEmitter {
 
       // If using sidechain, connect to it as well
       if (this.config.sidechainRpcUrl) {
-        this.sidechainProvider = new ethers.providers.JsonRpcProvider(this.config.sidechainRpcUrl);
+        this.sidechainProvider = new ethers.JsonRpcProvider(this.config.sidechainRpcUrl);
         this.sidechainWallet = this.wallet.connect(this.sidechainProvider);
 
         logger.info(`Connected to Ethereum sidechain with address: ${this.sidechainWallet.address}`);
@@ -205,7 +205,7 @@ class OptimizedBridge extends EventEmitter {
       await this.fabricGateway.connect(connectionProfile, {
         wallet,
         identity: this.config.fabricUserName,
-        discovery: { enabled: this.config.fabricDiscovery || true, asLocalhost: this.config.fabricAsLocalhost || true }
+        discovery: { enabled: this.config.fabricDiscovery ?? true, asLocalhost: this.config.fabricAsLocalhost ?? true }
       });
 
       // Get the network channel
@@ -225,16 +225,16 @@ class OptimizedBridge extends EventEmitter {
   /**
    * Set up event listeners for both networks
    */
-  setupEventListeners() {
+  async setupEventListeners() {
     try {
       logger.info('Setting up event listeners...');
 
       // Ethereum events
-      this.sidechainBridge.on('BatchSubmitted', this.handleBatchSubmitted.bind(this));
-      this.sidechainBridge.on('TokensLockedForSidechain', this.handleTokensLocked.bind(this));
-      this.sidechainBridge.on('NFTLockedForSidechain', this.handleNFTLocked.bind(this));
-      this.sidechainBridge.on('TokensReleasedFromSidechain', this.handleTokensReleased.bind(this));
-      this.sidechainBridge.on('NFTReleasedFromSidechain', this.handleNFTReleased.bind(this));
+      await this.sidechainBridge.on('BatchSubmitted', this.handleBatchSubmitted.bind(this));
+      await this.sidechainBridge.on('TokensLockedForSidechain', this.handleTokensLocked.bind(this));
+      await this.sidechainBridge.on('NFTLockedForSidechain', this.handleNFTLocked.bind(this));
+      await this.sidechainBridge.on('TokensReleasedFromSidechain', this.handleTokensReleased.bind(this));
+      await this.sidechainBridge.on('NFTReleasedFromSidechain', this.handleNFTReleased.bind(this));
 
       // Fabric events using contract listeners
       const tokenizationListener = async (event) => {
@@ -251,13 +251,13 @@ class OptimizedBridge extends EventEmitter {
       const tokenizationEventName = this.config.fabricTokenizationEventName || 'TokenizationRequested';
       const nftMintingEventName = this.config.fabricNFTMintingEventName || 'NFTMintingRequested';
 
-      this.fabricNetwork.addBlockListener('tokenization-listener', async (blockEvent) => {
+      await this.fabricNetwork.addBlockListener(async (blockEvent) => {
         for (const transaction of blockEvent.getTransactionEvents()) {
           for (const event of transaction.getEvents()) {
             if (event.eventName === tokenizationEventName) {
-              tokenizationListener(event);
+              await tokenizationListener(event);
             } else if (event.eventName === nftMintingEventName) {
-              nftMintingListener(event);
+              await nftMintingListener(event);
             }
           }
         }
@@ -335,20 +335,19 @@ class OptimizedBridge extends EventEmitter {
    * Process a batch of transactions
    */
   async processBatch() {
-    if (this.fabricToEthereumQueue.length === 0) {
+    if (this.processingBatch || this.fabricToEthereumQueue.length === 0) {
       logger.info('No transactions to process in batch');
       return;
     }
 
     logger.info(`Processing batch of ${this.fabricToEthereumQueue.length} transactions`);
 
+    this.processingBatch = true;
+    const transactions = this.fabricToEthereumQueue.splice(0);
     try {
       // Increment batch ID
       this.currentBatchId++;
 
-      // Clone current queue and clear it for new transactions
-      const transactions = [...this.fabricToEthereumQueue];
-      this.fabricToEthereumQueue = [];
 
       // Create merkle tree from transaction hashes
       const leaves = transactions.map(tx => this.hashTransaction(tx));
@@ -364,7 +363,7 @@ class OptimizedBridge extends EventEmitter {
 
       logger.info(`Batch ${this.currentBatchId} submitted to Ethereum`, {
         batchId: this.currentBatchId,
-        transactionHash: receipt.transactionHash,
+        transactionHash: receipt.hash,
         merkleRoot
       });
 
@@ -375,7 +374,7 @@ class OptimizedBridge extends EventEmitter {
       this.stats.totalBatches++;
 
       // Estimate gas saved through batching
-      const gasSavedEstimate = (transactions.length * 150000) - receipt.gasUsed.toNumber();
+      const gasSavedEstimate = (transactions.length * 150000) - Number(receipt.gasUsed);
       this.stats.totalGasSaved += gasSavedEstimate;
 
       logger.info(`Batch ${this.currentBatchId} processed successfully`, {
@@ -392,9 +391,7 @@ class OptimizedBridge extends EventEmitter {
       });
     } catch (error) {
       // In case of failure, requeue transactions
-      for (const tx of this.fabricToEthereumQueue) {
-        this.fabricToEthereumQueue.push(tx);
-      }
+      this.fabricToEthereumQueue.unshift(...transactions);
 
       logger.error(`Failed to process batch: ${error.message}`, { error });
 
@@ -403,6 +400,8 @@ class OptimizedBridge extends EventEmitter {
         batchId: this.currentBatchId,
         error: error.message
       });
+    } finally {
+      this.processingBatch = false;
     }
   }
 
@@ -440,6 +439,7 @@ class OptimizedBridge extends EventEmitter {
         });
       } catch (error) {
         this.stats.failedFabricToEthereumTx++;
+        this.fabricToEthereumQueue.push(tx);
 
         logger.error(`Failed to process transaction in batch: ${error.message}`, {
           error,
@@ -522,7 +522,7 @@ class OptimizedBridge extends EventEmitter {
     // Mint tokens on Ethereum
     const tx = await this.cotToken.mintBatch(
       transaction.batchId,
-      ethers.utils.parseEther(transaction.quantity.toString()),
+      ethers.parseEther(transaction.quantity.toString()),
       transaction.warehouseId,
       transaction.recipient || this.wallet.address
     );
@@ -533,8 +533,9 @@ class OptimizedBridge extends EventEmitter {
     await this.fabricContract.submitTransaction(
       'completeTokenization',
       transaction.requestId,
-      receipt.transactionHash
+      receipt.hash
     );
+    return { transactionHash: receipt.hash };
   }
 
   /**
@@ -615,7 +616,7 @@ class OptimizedBridge extends EventEmitter {
       const receipt = await tx.wait(this.config.requiredConfirmations);
 
       // Get token ID from event
-      const mintEvent = receipt.events.find(e => e.event === 'ProductMinted');
+      const mintEvent = receipt.logs.find(e => e.fragment?.name === 'ProductMinted');
       const tokenId = mintEvent.args.tokenId.toString();
 
       // After successful Ethereum processing, update Fabric state
@@ -628,7 +629,7 @@ class OptimizedBridge extends EventEmitter {
       logger.info(`NFT minted successfully`, {
         transactionId: transaction.id,
         tokenId,
-        transactionHash: receipt.transactionHash
+        transactionHash: receipt.hash
       });
     } catch (error) {
       logger.error(`Failed to process NFT minting transaction: ${error.message}`, {
@@ -656,7 +657,7 @@ class OptimizedBridge extends EventEmitter {
       const validatorWallet = new ethers.Wallet(validator.privateKey);
 
       // Sign the message hash
-      const signature = await validatorWallet.signMessage(ethers.utils.arrayify(messageHash));
+      const signature = await validatorWallet.signMessage(ethers.getBytes(messageHash));
 
       signatures.push(signature);
     }
@@ -725,7 +726,7 @@ class OptimizedBridge extends EventEmitter {
         // Mint tokens on Ethereum in one transaction
         const tx = await this.cotToken.mint(
           userAddress,
-          ethers.utils.parseEther(stateChannel.pendingAmount.toString())
+          ethers.parseEther(stateChannel.pendingAmount.toString())
         );
 
         const receipt = await tx.wait(this.config.requiredConfirmations);
@@ -735,7 +736,7 @@ class OptimizedBridge extends EventEmitter {
           await this.fabricContract.submitTransaction(
             'completeTokenization',
             transaction.requestId,
-            receipt.transactionHash
+            receipt.hash
           );
         }
 
@@ -743,7 +744,7 @@ class OptimizedBridge extends EventEmitter {
           channelId: stateChannel.id,
           userAddress,
           pendingAmount: stateChannel.pendingAmount,
-          transactionHash: receipt.transactionHash
+          transactionHash: receipt.hash
         });
       }
 
@@ -824,9 +825,9 @@ class OptimizedBridge extends EventEmitter {
     this.queueEthereumToFabricTransaction({
       type: 'tokenLock',
       user,
-      amount: ethers.utils.formatEther(amount),
+      amount: ethers.formatEther(amount),
       txHash,
-      ethereumTxHash: event.transactionHash
+      ethereumTxHash: event.log.transactionHash
     });
   }
 
@@ -846,7 +847,7 @@ class OptimizedBridge extends EventEmitter {
       user,
       tokenId: tokenId.toString(),
       txHash,
-      ethereumTxHash: event.transactionHash
+      ethereumTxHash: event.log.transactionHash
     });
   }
 
@@ -1019,7 +1020,7 @@ class OptimizedBridge extends EventEmitter {
       activeStateChannels: this.activeStateChannels.size,
       pendingFabricToEthereumTx: this.fabricToEthereumQueue.length,
       pendingEthereumToFabricTx: this.ethereumToFabricQueue.length,
-      gasSavedInETH: ethers.utils.formatEther(this.stats.totalGasSaved * this.config.averageGasPrice || 50e9) // 50 gwei default
+      gasSavedInETH: ethers.formatEther(BigInt(this.stats.totalGasSaved) * BigInt(this.config.averageGasPrice ?? 50e9)) // 50 gwei default
     };
   }
 
@@ -1054,6 +1055,11 @@ class OptimizedBridge extends EventEmitter {
         await this.fabricGateway.disconnect();
       }
 
+      for (const contract of [this.sidechainBridge, this.cotToken, this.productNFT]) {
+        if (contract) await contract.removeAllListeners();
+      }
+      this.provider?.destroy();
+      this.sidechainProvider?.destroy();
       logger.info('OptimizedBridge stopped successfully');
       return true;
     } catch (error) {

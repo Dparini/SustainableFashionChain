@@ -6,7 +6,7 @@
 
 const { QUEUE_CONFIG } = require('../config/queue');
 const queueService = require('../services/queueService');
-const notificationService = require('../services/notificationService');
+const notificationService = require('../notification-service');
 const emailService = require('../utils/emailService');
 
 class NotificationWorker {
@@ -15,6 +15,7 @@ class NotificationWorker {
      */
     async start() {
         try {
+            await require('../config/queue').initializeQueue();
             await queueService.consume(
                 QUEUE_CONFIG.queues.NOTIFICATION,
                 this.processNotification.bind(this)
@@ -34,7 +35,7 @@ class NotificationWorker {
         console.log('Processing notification:', data);
 
         try {
-            const { type, recipients, message, metadata } = data;
+            const { type, recipients, message, metadata = {} } = data;
 
             // Send web notification
             await notificationService.broadcast({
@@ -83,6 +84,6 @@ class NotificationWorker {
 
 // Create and start worker
 const worker = new NotificationWorker();
-worker.start().catch(console.error);
+if (require.main === module) worker.start().catch(error => { console.error(error); process.exitCode = 1; });
 
 module.exports = worker;

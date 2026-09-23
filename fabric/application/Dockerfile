@@ -1,24 +1,14 @@
-FROM node:16
-
-# Create app directory
-WORKDIR /usr/src/app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    python3
-
-# Copy package files
-COPY package*.json ./
-
-# Install npm dependencies
-RUN npm install
-
-# Copy application files
-COPY . .
-
-# Expose port
-EXPOSE 3000
-
-# Start the application
+# Build from the repository root:
+# docker build -f fabric/application/Dockerfile -t sfc-api .
+FROM node:22
+WORKDIR /app/bridging
+COPY bridging/package*.json ./
+RUN npm ci --omit=dev
+WORKDIR /app/fabric/application
+COPY fabric/application/package*.json ./
+RUN npm ci --omit=dev
+COPY bridging /app/bridging
+COPY fabric/application /app/fabric/application
+ENV API_PORT=3001
+EXPOSE 3001
 CMD ["npm", "start"]

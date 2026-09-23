@@ -1,0 +1,16 @@
+.git
+.agents
+.codex
+**/node_modules
+**/build
+**/coverage
+**/.env
+**/.env.*
+**/wallet
+**/wallets
+**/msp
+**/tls
+**/*.key
+**/*_sk
+**/*.log
+fabric-samples

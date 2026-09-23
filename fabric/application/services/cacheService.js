@@ -7,8 +7,8 @@
 const { getRedisClient, CACHE_TTL, KEY_PREFIXES } = require('../config/redis');
 
 class CacheService {
-    constructor() {
-        this.redis = getRedisClient();
+    get redis() {
+        return getRedisClient();
     }
 
     /**

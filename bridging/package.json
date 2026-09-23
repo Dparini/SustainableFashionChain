@@ -4,9 +4,9 @@
   "description": "Bridge between Hyperledger Fabric and Ethereum for sustainable fashion supply chain",
   "main": "bridge.js",
   "scripts": {
-    "start": "node bridge.js",
-    "dev": "nodemon bridge.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node start.js",
+    "dev": "nodemon start.js",
+    "test": "node --test --test-name-pattern=\"^bridge:\" ../scripts/dependency-compat.test.cjs"
   },
   "keywords": [
     "blockchain",
@@ -20,23 +20,28 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "body-parser": "^1.20.0",
-    "cors": "^2.8.5",
-    "crypto": "^1.0.1",
-    "dotenv": "^16.0.0",
-    "ethers": "^5.8.0",
-    "express": "^4.17.3",
-    "express-rate-limit": "^7.5.0",
+    "body-parser": "^1.20.8",
+    "cors": "^2.8.6",
+    "dotenv": "^16.6.1",
+    "ethers": "^6.17.0",
+    "express": "^4.22.3",
+    "express-rate-limit": "^7.5.1",
     "fabric-ca-client": "^2.2.20",
     "fabric-network": "^2.2.20",
-    "fs-extra": "^11.3.0",
+    "fs-extra": "^11.4.1",
     "keccak256": "^1.0.6",
-    "merkletreejs": "^0.5.1",
-    "path": "^0.12.7",
-    "winston": "^3.17.0"
+    "merkletreejs": "^0.5.2",
+    "snarkjs": "^0.7.6",
+    "winston": "^3.19.0"
   },
   "devDependencies": {
-    "hardhat": "^2.22.19",
-    "nodemon": "^2.0.15"
+    "nodemon": "^3.1.14"
+  },
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "overrides": {
+    "jsrsasign": "^11.1.5",
+    "underscore": "^1.13.8"
   }
 }

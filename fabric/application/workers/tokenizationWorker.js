@@ -6,16 +6,22 @@
 
 const { QUEUE_CONFIG } = require('../config/queue');
 const queueService = require('../services/queueService');
-const bridge = require('../../../bridging/bridge');
+const { createConfiguredBridge } = require('../../../bridging/runtime');
 const cacheService = require('../services/cacheService');
-const notificationService = require('../services/notificationService');
+const notificationService = require('../notification-service');
 
 class TokenizationWorker {
+    constructor(bridge) { this.bridge = bridge; }
     /**
      * Start the worker
      */
     async start() {
         try {
+            await require('../config/queue').initializeQueue();
+            await require('../config/redis').initializeRedis();
+            this.bridge ||= createConfiguredBridge();
+            await this.bridge.connectToEthereum();
+            await this.bridge.connectToFabric();
             await queueService.consume(
                 QUEUE_CONFIG.queues.TOKENIZATION,
                 this.processTokenization.bind(this)
@@ -52,7 +58,7 @@ class TokenizationWorker {
             }
 
             // Call bridge service to perform tokenization
-            const result = await bridge.tokenizeBatch(batchId, quantity, warehouseId);
+            const result = await this.bridge.processTokenizationOnMainnet({ batchId, quantity, warehouseId, requestId });
 
             // Update batch status
             batch.tokenizationId = result.transactionHash;
@@ -61,10 +67,7 @@ class TokenizationWorker {
 
             // Send notification
             await notificationService.notifyTokenization(
-                requestId,
-                batchId,
-                result.transactionHash,
-                quantity
+                'completed', result.transactionHash, batchId, { requestId, quantity }
             );
 
             console.log(`Tokenization completed for batch ${batchId}`);
@@ -73,11 +76,7 @@ class TokenizationWorker {
             console.error('Error processing tokenization:', error);
 
             // Send failure notification
-            await notificationService.notifyTokenizationFailure(
-                data.requestId,
-                data.batchId,
-                error.message
-            );
+            notificationService.notifySystem('Tokenization failed', `Request ${data.requestId}: ${error.message}`, 'danger');
 
             // Rethrow error for retry mechanism
             throw error;
@@ -87,6 +86,7 @@ class TokenizationWorker {
 
 // Create and start worker
 const worker = new TokenizationWorker();
-worker.start().catch(console.error);
+if (require.main === module) worker.start().catch(error => { console.error(error); process.exitCode = 1; });
 
 module.exports = worker;
+module.exports.TokenizationWorker = TokenizationWorker;

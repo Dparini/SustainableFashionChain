@@ -50,12 +50,15 @@ const QUEUE_CONFIG = {
 
 let connection = null;
 let channel = null;
+let closing = false;
+let reconnectTimer;
 
 /**
  * Initialize RabbitMQ connection
  * @returns {Promise<void>}
  */
 const initializeQueue = async () => {
+    closing = false;
     try {
         // Create connection
         connection = await amqp.connect(QUEUE_CONFIG.connection);
@@ -113,7 +116,7 @@ const initializeQueue = async () => {
         connection.on('close', () => {
             console.log('RabbitMQ connection closed');
             // Attempt to reconnect after delay
-            setTimeout(initializeQueue, 5000);
+            if (!closing) reconnectTimer = setTimeout(() => initializeQueue().catch(console.error), 5000);
         });
 
     } catch (error) {
@@ -138,6 +141,8 @@ const getChannel = () => {
  * @returns {Promise<void>}
  */
 const closeQueue = async () => {
+    closing = true;
+    clearTimeout(reconnectTimer);
     try {
         if (channel) {
             await channel.close();

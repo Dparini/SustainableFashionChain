@@ -63,7 +63,7 @@ class ZKProofService {
 
             // Generate time-bound proof
             const input = {
-                hashedOrgId: hashedData.hashedData,
+                hashedOrgId: hashedData.organizationId,
                 validUntil: certificationData.validUntil,
                 currentTimestamp: Date.now()
             };

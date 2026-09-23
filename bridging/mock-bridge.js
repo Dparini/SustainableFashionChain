@@ -143,7 +143,7 @@ async function main() {
 
     // Connect to Ethereum
     console.log('Connecting to Ethereum:', process.env.ETHEREUM_PROVIDER_URL);
-    const provider = new ethers.providers.JsonRpcProvider(process.env.ETHEREUM_PROVIDER_URL);
+    const provider = new ethers.JsonRpcProvider(process.env.ETHEREUM_PROVIDER_URL);
 
     // Get network info
     const network = await provider.getNetwork();
@@ -151,7 +151,7 @@ async function main() {
 
     // Get a signer
     const [signer] = await provider.listAccounts();
-    const wallet = provider.getSigner(signer);
+    const wallet = await provider.getSigner(signer);
     const walletAddress = await wallet.getAddress();
     console.log('Using wallet address:', walletAddress);
 
@@ -204,8 +204,8 @@ async function main() {
       console.log('CotToken Transfer event:');
       console.log('- From:', from);
       console.log('- To:', to);
-      console.log('- Amount:', ethers.utils.formatEther(amount));
-      console.log('- Transaction:', event.transactionHash);
+      console.log('- Amount:', ethers.formatEther(amount));
+      console.log('- Transaction:', event.log.transactionHash);
     });
 
     productNFT.on('Transfer', (from, to, tokenId, event) => {
@@ -213,7 +213,7 @@ async function main() {
       console.log('- From:', from);
       console.log('- To:', to);
       console.log('- TokenId:', tokenId.toString());
-      console.log('- Transaction:', event.transactionHash);
+      console.log('- Transaction:', event.log.transactionHash);
     });
 
     // Set up a simple demo of bridge functionality
@@ -232,7 +232,7 @@ async function main() {
             try {
               const tx = await cotToken.mintBatch(
                 payload.batchId,
-                ethers.utils.parseEther(payload.quantity),
+                ethers.parseEther(payload.quantity),
                 payload.warehouseId,
                 walletAddress
               );

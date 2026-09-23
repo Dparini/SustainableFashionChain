@@ -21,51 +21,18 @@ const apiRouter = require('./api-gateway');
 const mobileApiRouter = require('./mobile-api');
 
 // Import services
-const bridge = require("../../bridging/bridge");
+const { createConfiguredBridge } = require("../../bridging/runtime");
+const http = require('http');
+let bridge = null;
 const notificationService = require('./notification-service');
 
 const app = express();
-const port = process.env.API_PORT || 3001;
-const server = app.listen(port, () => {
-    console.log(`App listening at http://localhost:${port}`);
-});
-
-// Modifica la funzione startServer per usare il server già dichiarato
-async function startServer() {
-    const connected = await connectToFabric();
-    if (!connected) {
-        console.log("Warning: Starting server without connection to Fabric network");
-    }
-
-    // Start bridge service
-    try {
-        await bridge.start();
-        console.log("Bridge service started successfully");
-    } catch (bridgeError) {
-        console.error(`Warning: Failed to start bridge service: ${bridgeError}`);
-    }
-
-    // Register process handlers for graceful shutdown
-    process.on('SIGINT', async () => {
-        console.log('Received SIGINT. Shutting down gracefully...');
-
-        if (gateway) {
-            gateway.disconnect();
-        }
-
-        try {
-            await bridge.stop();
-        } catch (error) {
-            console.error(`Error stopping bridge: ${error}`);
-        }
-
-        server.close(() => {
-            console.log('Server closed');
-            process.exit(0);
-        });
-    });
+// Set this only for the trusted reverse proxy in front of the API.
+if (process.env.TRUST_PROXY) {
+    app.set('trust proxy', /^\d+$/.test(process.env.TRUST_PROXY)
+        ? Number(process.env.TRUST_PROXY) : process.env.TRUST_PROXY);
 }
-
+const port = process.env.API_PORT || 3001;
 // Configure middleware
 app.use(cors());
 app.use(bodyParser.json());
@@ -109,7 +76,7 @@ async function connectToFabric() {
         const ccp = JSON.parse(fs.readFileSync(ccpPath, "utf8"));
 
         // Create a new wallet for identity
-        const walletPath = path.join(process.cwd(), "wallet");
+        const walletPath = path.join(__dirname, "wallet");
         const wallet = await Wallets.newFileSystemWallet(walletPath);
 
         // Check if admin identity exists
@@ -149,6 +116,7 @@ app.get("/", (req, res) => {
 
 // API routes
 app.use("/api/v1", apiRouter);
+app.use("/api", apiRouter);
 app.use("/mobile-api", mobileApiRouter);
 
 // Authentication routes
@@ -474,52 +442,46 @@ app.use((req, res) => {
     });
 });
 
-// Start the server
-const server = app.listen(port, () => {
-    console.log(`App listening at http://localhost:${port}`);
-});
-
-// Setup WebSocket server for real-time notifications
-const wss = new WebSocket.Server({ server });
-
-// Initialize notification service with WebSocket server
-notificationService.initialize(server);
-
-// Connect to Fabric and start the server
-async function startServer() {
-    const connected = await connectToFabric();
-    if (!connected) {
-        console.log("Warning: Starting server without connection to Fabric network");
+// Create one HTTP server and one WebSocket server, only when explicitly started.
+let server;
+async function startServer({ listenPort = port, connectFabric = true } = {}) {
+    if (server) return server;
+    if (connectFabric) await connectToFabric();
+    if (process.env.START_BRIDGE === 'true') {
+        bridge = createConfiguredBridge();
+        await bridge.initialize();
     }
-
-    // Start bridge service
-    try {
-        await bridge.start();
-        console.log("Bridge service started successfully");
-    } catch (bridgeError) {
-        console.error(`Warning: Failed to start bridge service: ${bridgeError}`);
-    }
-
-    // Register process handlers for graceful shutdown
-    process.on('SIGINT', async () => {
-        console.log('Received SIGINT. Shutting down gracefully...');
-
-        if (gateway) {
-            gateway.disconnect();
-        }
-
-        try {
-            await bridge.stop();
-        } catch (error) {
-            console.error(`Error stopping bridge: ${error}`);
-        }
-
-        server.close(() => {
-            console.log('Server closed');
-            process.exit(0);
-        });
+    const listener = http.createServer(app);
+    await new Promise((resolve, reject) => {
+        listener.once('error', reject);
+        listener.listen(listenPort, () => { listener.removeListener('error', reject); resolve(); });
     });
+    server = listener;
+    notificationService.initialize(server);
+    console.log(`App listening at http://localhost:${server.address().port}`);
+    return server;
 }
 
-// Start the application
-startServer();
+async function stopServer() {
+    if (gateway) { gateway.disconnect(); gateway = null; network = null; contract = null; }
+    if (bridge) { await bridge.stop(); bridge = null; }
+    if (notificationService.wss) {
+        for (const client of notificationService.wss.clients) client.terminate();
+        await new Promise(resolve => notificationService.wss.close(resolve));
+        notificationService.wss = null;
+    }
+    if (server) {
+        const listener = server; server = null;
+        await new Promise((resolve, reject) => listener.close(error => error ? reject(error) : resolve()));
+    }
+}
+
+if (require.main === module) {
+    startServer().catch(error => { console.error(error.message); process.exitCode = 1; });
+    for (const signal of ['SIGINT', 'SIGTERM']) {
+        process.once(signal, () => stopServer().then(() => process.exit(0)).catch(error => {
+            console.error(error); process.exit(1);
+        }));
+    }
+}
+module.exports = { app, startServer, stopServer };

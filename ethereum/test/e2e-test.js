@@ -4,8 +4,10 @@ const { ethers } = require("hardhat");
 const { parseEther } = require("ethers");
 
 // Constants and configuration
-const API_URL = 'http://localhost:3000/api';
-const ETHEREUM_PROVIDER_URL = 'http://127.0.0.1:8545';
+const API_URL = process.env.API_URL || 'http://localhost:3001/api/v1';
+axios.defaults.timeout = 10000;
+if (process.env.API_TOKEN) axios.defaults.headers.common.Authorization = `Bearer ${process.env.API_TOKEN}`;
+const ETHEREUM_PROVIDER_URL = process.env.ETHEREUM_PROVIDER_URL || 'http://127.0.0.1:8545';
 const addresses = require('../contract-addresses.json');
 const COT_TOKEN_ADDRESS = addresses.CotToken;
 const PRODUCT_NFT_ADDRESS = addresses.ProductNFT;
@@ -40,29 +42,32 @@ let productNFT;
 let wallet;
 let walletAddress;
 
-// Remove .skip() to run these tests when API server is available
+// Explicit integration suite: requires running services and API_TOKEN.
 describe('End-to-End Test: Supply Chain and Tokenization', function() {
   this.timeout(30000); // 30 seconds timeout
 
+  after(() => provider?.destroy());
+
   before(async () => {
+    if (!process.env.API_TOKEN) throw new Error("Set API_TOKEN and start the API, Fabric, Ethereum node and bridge before running test:e2e.");
     try {
       // Setup Ethereum connection
       provider = new ethers.JsonRpcProvider(ETHEREUM_PROVIDER_URL);
-      const accounts = await provider.listAccounts();
-      walletAddress = accounts[0];
-      wallet = provider.getSigner(walletAddress);
+      wallet = await provider.getSigner(0);
+      walletAddress = await wallet.getAddress();
 
       cotToken = new ethers.Contract(COT_TOKEN_ADDRESS, CotTokenABI, wallet);
       productNFT = new ethers.Contract(PRODUCT_NFT_ADDRESS, ProductNFTABI, wallet);
 
       console.log("Connected to Ethereum with wallet:", walletAddress);
     } catch (error) {
-      console.error("Error in setup:", error);
+      provider?.destroy();
+      throw error;
     }
   });
 
   it('should register a product in Fabric', async function () {
-    // Skip this test if the API server is not running
+    // Fail if an external service is unavailable or an assertion does not hold.
     try {
       const response = await axios.post(`${API_URL}/products`, testProduct);
 
@@ -71,8 +76,8 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
       expect(response.data.product).to.have.property('id').that.equals(testProduct.id);
       expect(response.data.product).to.have.property('status').that.equals('REGISTERED');
     } catch (error) {
-      console.log("API server not running, skipping test");
-      this.skip();
+      console.log("API request failed");
+      throw error;
     }
   });
 
@@ -85,8 +90,8 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
       expect(response.data.product).to.have.property('id').that.equals(testProduct.id);
       expect(response.data.product).to.have.property('type').that.equals(testProduct.type);
     } catch (error) {
-      console.log("API server not running, skipping test");
-      this.skip();
+      console.log("API request failed");
+      throw error;
     }
   });
 
@@ -104,8 +109,8 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
       expect(response.data.status).to.equal('success');
       expect(response.data.product).to.have.property('status').that.equals('CERTIFIED');
     } catch (error) {
-      console.log("API server not running, skipping test");
-      this.skip();
+      console.log("API request failed");
+      throw error;
     }
   });
 
@@ -122,8 +127,8 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
       const balance = await cotToken.balanceOf(walletAddress);
       expect(balance).to.be.gt(0n, 'Owner should have tokens');
     } catch (error) {
-      console.log("Skipping test:", error.message);
-      this.skip();
+      console.log("Integration test failed:", error.message);
+      throw error;
     }
   });
 
@@ -138,8 +143,8 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
       expect(response.data.product.custodyHistory).to.have.lengthOf(2);
       expect(response.data.product.custodyHistory[1].holder).to.equal('Manufacturer X');
     } catch (error) {
-      console.log("API server not running, skipping test");
-      this.skip();
+      console.log("API request failed");
+      throw error;
     }
   });
 
@@ -156,8 +161,8 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
       expect(response.status).to.equal(200);
       expect(response.data.product).to.have.property('status').that.equals('FINISHED');
     } catch (error) {
-      console.log("API server not running, skipping test");
-      this.skip();
+      console.log("API request failed");
+      throw error;
     }
   });
 
@@ -184,8 +189,8 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
       // const fabricId = await productNFT.productData(tokenId).fabricProductId;
       // expect(fabricId).to.equal(testProduct.id);
     } catch (error) {
-      console.log("Skipping test:", error.message);
-      this.skip();
+      console.log("Integration test failed:", error.message);
+      throw error;
     }
   });
 
@@ -210,8 +215,8 @@ describe('End-to-End Test: Supply Chain and Tokenization', function() {
       const fabricResponse = await axios.get(`${API_URL}/products/${testProduct.id}`);
       expect(fabricResponse.data.product.status).to.equal('RECYCLING_INITIATED');
     } catch (error) {
-      console.log("Skipping test:", error.message);
-      this.skip();
+      console.log("Integration test failed:", error.message);
+      throw error;
     }
   });
 });

@@ -1,26 +1,29 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Box,
-  Typography,
-  Grid,
-  Card,
-  CardContent,
-  CardHeader,
-  Paper,
-  Divider
-} from '@mui/material';
+import Alert from '@mui/material/Alert';
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
+import Typography from '@mui/material/Typography';
+import Grid from '@mui/material/Grid';
+import Card from '@mui/material/Card';
+import CardContent from '@mui/material/CardContent';
+import CardHeader from '@mui/material/CardHeader';
+import Paper from '@mui/material/Paper';
+import Divider from '@mui/material/Divider';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { fetchProductsByType, fetchAllProducts } from '../services/api';
+import { errorMessage, fetchAllProducts } from '../services/api';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-function Dashboard() {
+function Dashboard({ title = 'Dashboard' }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [productStats, setProductStats] = useState({
     cotton: 0,
     silk: 0,
     finished: 0,
     certified: 0,
-    recycled: 0
+    recycled: 0,
+    tokenized: 0
   });
 
   const [statusData, setStatusData] = useState([]);
@@ -46,8 +49,10 @@ function Dashboard() {
 
         let certifiedCount = 0;
         let recycledCount = 0;
+        let tokenizedCount = 0;
 
         products.forEach(product => {
+          if (product.nftTokenId != null || product.tokenized) tokenizedCount++;
           // Count by type
           if (typeCount.hasOwnProperty(product.type)) {
             typeCount[product.type]++;
@@ -83,7 +88,8 @@ function Dashboard() {
           silk: typeCount.silk,
           finished: typeCount.finished,
           certified: certifiedCount,
-          recycled: recycledCount
+          recycled: recycledCount,
+          tokenized: tokenizedCount
         });
 
         // Format status data for chart
@@ -101,17 +107,21 @@ function Dashboard() {
         setCertificationData(certArr);
 
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        setError(errorMessage(error));
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchData();
   }, []);
 
+  if (loading) return <CircularProgress aria-label="Loading dashboard" />;
+  if (error) return <Alert severity="error">{error}</Alert>;
   return (
     <Box>
-      <Typography variant="h4" gutterBottom>
-        Dashboard
+      <Typography variant="h4" component="h1" gutterBottom>
+        {title}
       </Typography>
 
       <Grid container spacing={3}>
@@ -138,7 +148,7 @@ function Dashboard() {
               <Typography color="textSecondary">Completed garments</Typography>
               <Box mt={2}>
                 <Typography>Certified: {productStats.certified}</Typography>
-                <Typography>Tokenized: {productStats.finished - productStats.certified}</Typography>
+                <Typography>Tokenized: {productStats.tokenized}</Typography>
               </Box>
             </CardContent>
           </Card>

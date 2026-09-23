@@ -55,10 +55,6 @@ bin/
 **/bin/
 
 # Go vendor
-<<<<<<< HEAD
 vendor/
-=======
-vendor/
->>>>>>> 61cc74b19b456ba76d0ec05eaec50c220d3f3829
 
 fabric-samples/

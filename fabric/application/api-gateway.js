@@ -62,7 +62,7 @@ const authenticateApiKey = (req, res, next) => {
         return res.status(401).json({ error: 'API key is required' });
     }
 
-    const client = apiKeys[apiKey];
+    const client = Object.hasOwn(apiKeys, apiKey) ? apiKeys[apiKey] : null;
     if (!client) {
         return res.status(401).json({ error: 'Invalid API key' });
     }
@@ -103,6 +103,7 @@ const requireRole = (role) => {
 
 // Helper function to connect to Fabric network
 const connectToFabric = async () => {
+    let gateway;
     try {
         // Load connection profile
         const ccp = JSON.parse(fs.readFileSync(ccpPath, 'utf8'));
@@ -117,7 +118,7 @@ const connectToFabric = async () => {
         }
 
         // Create a new gateway for connecting to the peer node
-        const gateway = new Gateway();
+        gateway = new Gateway();
         await gateway.connect(ccp, {
             wallet,
             identity: 'admin',
@@ -132,6 +133,7 @@ const connectToFabric = async () => {
 
         return { gateway, contract };
     } catch (error) {
+        gateway?.disconnect();
         throw error;
     }
 };
@@ -156,49 +158,56 @@ apiRouter.post('/token', authenticateApiKey, (req, res) => {
 
 // Batches endpoints
 apiRouter.get('/batches', authenticateJwt, async (req, res) => {
+    let connection;
     try {
-        const { contract, gateway } = await connectToFabric();
+        const { contract } = connection = await connectToFabric();
 
         // Query batches
-        const result = await contract.evaluateTransaction('QueryAllBatches');
+        const result = await contract.evaluateTransaction('queryAllBatches');
         const batches = JSON.parse(result.toString());
 
         // Disconnect from gateway
-        gateway.disconnect();
+
 
         res.status(200).json(batches);
     } catch (error) {
         console.error(`Error querying batches: ${error}`);
         res.status(500).json({ error: error.message });
+    } finally {
+        connection?.gateway.disconnect();
     }
 });
 
 apiRouter.get('/batches/:id', authenticateJwt, async (req, res) => {
+    let connection;
     try {
-        const { contract, gateway } = await connectToFabric();
+        const { contract } = connection = await connectToFabric();
 
         // Get batch by ID
-        const result = await contract.evaluateTransaction('GetBatch', req.params.id);
+        const result = await contract.evaluateTransaction('queryProduct', req.params.id);
         const batch = JSON.parse(result.toString());
 
         // Disconnect from gateway
-        gateway.disconnect();
+
 
         res.status(200).json(batch);
     } catch (error) {
         console.error(`Error getting batch: ${error}`);
         res.status(500).json({ error: error.message });
+    } finally {
+        connection?.gateway.disconnect();
     }
 });
 
 apiRouter.post('/batches', authenticateJwt, requireRole('admin'), async (req, res) => {
+    let connection;
     try {
-        const { contract, gateway } = await connectToFabric();
+        const { contract } = connection = await connectToFabric();
         const { id, farmID, quantity, organic, fairTrade, harvestDate, location } = req.body;
 
         // Create batch
         await contract.submitTransaction(
-            'CreateCottonBatch',
+            'registerCottonBatch',
             id,
             farmID,
             quantity.toString(),
@@ -209,63 +218,121 @@ apiRouter.post('/batches', authenticateJwt, requireRole('admin'), async (req, re
         );
 
         // Disconnect from gateway
-        gateway.disconnect();
+
 
         res.status(201).json({ message: 'Batch created successfully', id });
     } catch (error) {
         console.error(`Error creating batch: ${error}`);
         res.status(500).json({ error: error.message });
+    } finally {
+        connection?.gateway.disconnect();
     }
 });
 
+// Product operations shared by the browser client.
+const productOperation = (action, status = 200) => async (req, res) => {
+    let connection;
+    try {
+        connection = await connectToFabric();
+        res.status(status).json(await action(connection.contract, req));
+    } catch (error) {
+        res.status(error.status || 503).json({ error: error.message });
+    } finally {
+        if (connection) connection.gateway.disconnect();
+    }
+};
+const requiredText = (...fields) => (req, res, next) => {
+    if (fields.some(field => typeof req.body[field] !== 'string' || !req.body[field].trim())) {
+        return res.status(400).json({ error: `Required fields: ${fields.join(', ')}` });
+    }
+    next();
+};
+const parseResult = result => JSON.parse(result.toString());
+
+apiRouter.get('/products/type/:type', authenticateJwt, productOperation(async (contract, req) => ({
+    products: parseResult(await contract.evaluateTransaction('queryProductsByType', req.params.type)),
+})));
+apiRouter.post('/products', authenticateJwt, requireRole('admin'), requiredText('id', 'type', 'origin'),
+    (req, res, next) => {
+        if (!['cotton', 'silk', 'finished'].includes(req.body.type) ||
+            (req.body.certifications !== undefined && !Array.isArray(req.body.certifications)) ||
+            (req.body.metadata !== undefined && (!req.body.metadata || typeof req.body.metadata !== 'object' || Array.isArray(req.body.metadata)))) {
+            return res.status(400).json({ error: 'Invalid product type, certifications or metadata' });
+        }
+        next();
+    }, productOperation(async (contract, req) => ({
+        status: 'success', product: parseResult(await contract.submitTransaction('registerProduct',
+            req.body.id, req.body.type, req.body.origin, Date.now().toString(),
+            JSON.stringify(req.body.certifications || []), JSON.stringify(req.body.metadata || {}))),
+    }), 201));
+apiRouter.post('/products/:id/transfer', authenticateJwt, requireRole('admin'), requiredText('newHolder', 'location'),
+    productOperation(async (contract, req) => ({ product: parseResult(await contract.submitTransaction(
+        'transferCustody', req.params.id, req.body.newHolder, Date.now().toString(), req.body.location)),
+    })));
+apiRouter.post('/products/:id/status', authenticateJwt, requireRole('admin'), requiredText('newStatus'),
+    productOperation(async (contract, req) => ({ product: parseResult(await contract.submitTransaction(
+        'updateStatus', req.params.id, req.body.newStatus, Date.now().toString(), JSON.stringify(req.body.additionalData || {}))),
+    })));
+apiRouter.post('/products/:id/certifications', authenticateJwt, requireRole('admin'), requiredText('certType', 'certId', 'issuer'),
+    productOperation(async (contract, req) => ({ product: parseResult(await contract.submitTransaction(
+        'addCertification', req.params.id, req.body.certType, req.body.certId, req.body.issuer, Date.now().toString())),
+    })));
+
 // Products endpoints
 apiRouter.get('/products', authenticateJwt, async (req, res) => {
+    let connection;
     try {
-        const { contract, gateway } = await connectToFabric();
+        const { contract } = connection = await connectToFabric();
 
         // Query products (assuming a QueryAllProducts function exists)
-        const result = await contract.evaluateTransaction('QueryAllProducts');
+        const result = await contract.evaluateTransaction('queryAllProducts');
         const products = JSON.parse(result.toString());
 
         // Disconnect from gateway
-        gateway.disconnect();
+
 
         res.status(200).json(products);
     } catch (error) {
         console.error(`Error querying products: ${error}`);
         res.status(500).json({ error: error.message });
+    } finally {
+        connection?.gateway.disconnect();
     }
 });
 
 apiRouter.get('/products/:id', authenticateJwt, async (req, res) => {
+    let connection;
     try {
-        const { contract, gateway } = await connectToFabric();
+        const { contract } = connection = await connectToFabric();
 
         // Get product by ID
-        const result = await contract.evaluateTransaction('GetProduct', req.params.id);
+        const result = await contract.evaluateTransaction('queryProduct', req.params.id);
         const product = JSON.parse(result.toString());
 
         // Disconnect from gateway
-        gateway.disconnect();
+
 
         res.status(200).json(product);
     } catch (error) {
         console.error(`Error getting product: ${error}`);
         res.status(500).json({ error: error.message });
+    } finally {
+        connection?.gateway.disconnect();
     }
 });
 
 // Verification endpoint (public, no authentication required)
 apiRouter.get('/verify/:id', async (req, res) => {
+    let connection;
     try {
-        const { contract, gateway } = await connectToFabric();
+        const { contract } = connection = await connectToFabric();
 
         // Get product by ID
-        const result = await contract.evaluateTransaction('GetProduct', req.params.id);
+        const result = await contract.evaluateTransaction('queryProduct', req.params.id);
         const product = JSON.parse(result.toString());
 
         // Disconnect from gateway
-        gateway.disconnect();
+
 
         // Return simplified verification data
         res.status(200).json({
@@ -275,7 +342,8 @@ apiRouter.get('/verify/:id', async (req, res) => {
             manufacturer: product.manufacturer,
             productionDate: product.productDate,
             nftTokenId: product.nftTokenId,
-            materials: product.materials.map(m => ({
+            product,
+            materials: (product.materials || []).map(m => ({
                 type: m.type,
                 percentage: m.percentage,
                 sustainable: m.sustainable
@@ -284,13 +352,16 @@ apiRouter.get('/verify/:id', async (req, res) => {
     } catch (error) {
         console.error(`Error verifying product: ${error}`);
         res.status(404).json({ verified: false, error: 'Product not found or could not be verified' });
+    } finally {
+        connection?.gateway.disconnect();
     }
 });
 
 // Tokenization endpoint
 apiRouter.post('/tokenize', authenticateJwt, requireRole('admin'), async (req, res) => {
+    let connection;
     try {
-        const { contract, gateway } = await connectToFabric();
+        const { contract } = connection = await connectToFabric();
         const { batchID, quantity, warehouseID } = req.body;
 
         // Generate request ID
@@ -298,7 +369,7 @@ apiRouter.post('/tokenize', authenticateJwt, requireRole('admin'), async (req, r
 
         // Request tokenization
         await contract.submitTransaction(
-            'RequestTokenization',
+            'requestTokenization',
             requestID,
             batchID,
             quantity.toString(),
@@ -306,23 +377,26 @@ apiRouter.post('/tokenize', authenticateJwt, requireRole('admin'), async (req, r
         );
 
         // Disconnect from gateway
-        gateway.disconnect();
+
 
         res.status(201).json({ message: 'Tokenization requested successfully', requestID });
     } catch (error) {
         console.error(`Error requesting tokenization: ${error}`);
         res.status(500).json({ error: error.message });
+    } finally {
+        connection?.gateway.disconnect();
     }
 });
 
 // NFT minting endpoint
 apiRouter.post('/mint-nft', authenticateJwt, requireRole('admin'), async (req, res) => {
+    let connection;
     try {
-        const { contract, gateway } = await connectToFabric();
+        const { contract } = connection = await connectToFabric();
         const { productId } = req.body;
 
         // Get product data
-        const productResult = await contract.evaluateTransaction('GetProduct', productId);
+        const productResult = await contract.evaluateTransaction('queryProduct', productId);
         const product = JSON.parse(productResult.toString());
 
         // In a real system, this would call the bridge service to mint an NFT
@@ -330,15 +404,17 @@ apiRouter.post('/mint-nft', authenticateJwt, requireRole('admin'), async (req, r
         const nftTokenId = Math.floor(Math.random() * 1000000).toString();
 
         // Update product with NFT token ID
-        await contract.submitTransaction('MintNFT', productId, nftTokenId);
+        await contract.submitTransaction('mintNFT', productId, nftTokenId);
 
         // Disconnect from gateway
-        gateway.disconnect();
+
 
         res.status(200).json({ message: 'NFT minted successfully', productId, nftTokenId });
     } catch (error) {
         console.error(`Error minting NFT: ${error}`);
         res.status(500).json({ error: error.message });
+    } finally {
+        connection?.gateway.disconnect();
     }
 });
 

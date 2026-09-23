@@ -1,9 +1,12 @@
 const { ethers } = require('ethers');
-const ChainlinkAggregatorV3Interface = require('../contracts/ChainlinkAggregatorV3Interface.json');
+const ChainlinkAggregatorV3Interface = { abi: [
+    'function decimals() view returns (uint8)',
+    'function latestRoundData() view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)'
+] };
 
 class OracleService {
     constructor() {
-        this.provider = new ethers.providers.JsonRpcProvider(
+        this.provider = new ethers.JsonRpcProvider(
             process.env.ETHEREUM_PROVIDER_URL || 'http://localhost:8545'
         );
     }
@@ -22,9 +25,8 @@ class OracleService {
             );
 
             const roundData = await priceFeed.latestRoundData();
-            const price = roundData.answer.div(10 ** 8); // Adjust decimals based on price feed
-
-            return price.toNumber();
+            const decimals = await priceFeed.decimals();
+            return Number(ethers.formatUnits(roundData.answer, decimals));
         } catch (error) {
             console.error('Oracle price retrieval error:', error);
             throw new Error('Failed to retrieve commodity price');

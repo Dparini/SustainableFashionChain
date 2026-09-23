@@ -8,7 +8,7 @@ const nodemailer = require('nodemailer');
 
 // Load environment variables
 const SMTP_HOST = process.env.SMTP_HOST || 'smtp.example.com';
-const SMTP_PORT = process.env.SMTP_PORT || 587;
+const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
 const SMTP_USER = process.env.SMTP_USER || 'noreply@sustainablefashionchain.com';
 const SMTP_PASS = process.env.SMTP_PASS || 'password';
 const FROM_EMAIL = process.env.FROM_EMAIL || 'SustainableFashionChain <noreply@sustainablefashionchain.com>';
@@ -17,38 +17,22 @@ const USE_SMTP = process.env.USE_SMTP === 'true';
 // Create mail transporter
 let transporter;
 
-// Initialize the mail transporter
-if (USE_SMTP) {
-    transporter = nodemailer.createTransport({
-        host: SMTP_HOST,
-        port: SMTP_PORT,
-        secure: SMTP_PORT === 465, // true for 465, false for other ports
-        auth: {
-            user: SMTP_USER,
-            pass: SMTP_PASS,
-        },
-    });
-} else {
-    // Use ethereal email for development (emails will be caught and displayed in the terminal)
-    // This creates a test account at ethereal.email that can be used for testing
-    nodemailer.createTestAccount().then(testAccount => {
-        transporter = nodemailer.createTransport({
-            host: 'smtp.ethereal.email',
-            port: 587,
-            secure: false,
-            auth: {
-                user: testAccount.user,
-                pass: testAccount.pass,
-            },
-        });
-
-        console.log('Ethereal email account created for development:');
-        console.log(`- Email: ${testAccount.user}`);
-        console.log(`- Password: ${testAccount.pass}`);
-        console.log('You can view sent emails at https://ethereal.email');
-    }).catch(error => {
-        console.error('Failed to create ethereal email account:', error);
-    });
+// Do not contact an external mail service while importing this module.
+let initialization;
+async function getTransporter() {
+    if (transporter) return transporter;
+    if (!initialization) initialization = (async () => {
+        if (USE_SMTP) {
+            transporter = nodemailer.createTransport({ host: SMTP_HOST, port: SMTP_PORT,
+                secure: SMTP_PORT === 465, auth: { user: SMTP_USER, pass: SMTP_PASS } });
+        } else {
+            const account = await nodemailer.createTestAccount();
+            transporter = nodemailer.createTransport({ host: 'smtp.ethereal.email', port: 587,
+                secure: false, auth: { user: account.user, pass: account.pass } });
+        }
+        return transporter;
+    })().catch(error => { initialization = null; throw error; });
+    return initialization;
 }
 
 /**
@@ -61,10 +45,7 @@ if (USE_SMTP) {
  */
 exports.sendEmail = async (to, subject, html, text = '') => {
     try {
-        if (!transporter) {
-            console.error('Email transporter not initialized');
-            return false;
-        }
+        await getTransporter();
 
         // Set up email options
         const mailOptions = {

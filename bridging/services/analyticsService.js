@@ -112,7 +112,7 @@ class AnalyticsService {
       }
 
       // Connect to Ethereum
-      const provider = new ethers.providers.JsonRpcProvider(process.env.ETHEREUM_PROVIDER_URL || 'http://localhost:8545');
+      const provider = new ethers.JsonRpcProvider(process.env.ETHEREUM_PROVIDER_URL || 'http://localhost:8545');
       this.ethereumProvider = provider;
 
       // Initialize contracts
@@ -359,7 +359,7 @@ class AnalyticsService {
       try {
         if (this.cotTokenContract) {
           const totalSupply = await this.cotTokenContract.totalSupply();
-          metrics.totalTokenized = parseFloat(ethers.utils.formatEther(totalSupply));
+          metrics.totalTokenized = parseFloat(ethers.formatEther(totalSupply));
 
           // Estimate value (in a real system, you'd get this from an oracle)
           metrics.totalTokenValue = metrics.totalTokenized * 30; // Example: $30 per kg

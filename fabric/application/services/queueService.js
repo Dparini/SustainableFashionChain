@@ -7,8 +7,8 @@
 const { getChannel, QUEUE_CONFIG } = require('../config/queue');
 
 class QueueService {
-    constructor() {
-        this.channel = getChannel();
+    get channel() {
+        return getChannel();
     }
 
     /**
@@ -61,7 +61,7 @@ class QueueService {
                         console.error(`Error processing message from ${queueName}:`, error);
 
                         // Check retry count
-                        const retryCount = (msg.properties.headers['x-retry-count'] || 0) + 1;
+                        const retryCount = (msg.properties.headers?.['x-retry-count'] || 0) + 1;
 
                         if (retryCount <= QUEUE_CONFIG.retry.count) {
                             // Retry with exponential backoff
