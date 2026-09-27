@@ -1,18 +1,24 @@
-const hre = require("hardhat");
-const { ethers } = hre;
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+const require = createRequire(import.meta.url);
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
+import { network } from "hardhat";
+const connection = await network.create();
+const { ethers } = connection;
+
 async function main() {
-  const [deployer] = await hre.ethers.getSigners();
-  console.log("Account balance:", (await hre.ethers.provider.getBalance(deployer.address)).toString());
+  const [deployer] = await ethers.getSigners();
+  console.log("Account balance:", (await ethers.provider.getBalance(deployer.address)).toString());
 
   console.log("Deploying contracts with the account:", deployer.address);
-  const balance = await hre.ethers.provider.getBalance(deployer.address);
+  const balance = await ethers.provider.getBalance(deployer.address);
   console.log("Account balance (via provider):", balance.toString());
 
   // Deploy CotToken
   const CotToken = await ethers.getContractFactory("CotToken");
   const cotTokenTx = await CotToken.deploy(deployer.address);
   const cotToken = await cotTokenTx.waitForDeployment();
-  const cotTokenInstance = await hre.ethers.getContractAt("CotToken", cotToken.target);
+  const cotTokenInstance = await ethers.getContractAt("CotToken", cotToken.target);
 
   console.log("CotToken deployed to:", cotToken.target);
 
@@ -26,7 +32,7 @@ async function main() {
   console.log("Registering test cotton batch...");
   const registerTx = await cotTokenInstance.mintBatch(
   "TEST-COTTON-001",
-  hre.ethers.parseEther("100"),
+  ethers.parseEther("100"),
   "WH-001", // ID fittizio del magazzino
   deployer.address
 );

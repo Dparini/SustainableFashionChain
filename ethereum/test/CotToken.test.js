@@ -1,6 +1,7 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
-const { parseEther } = require("ethers");
+import { expect } from "chai";
+import { network } from "hardhat";
+const { ethers } = await network.create();
+import { parseEther } from "ethers";
 
 describe("CotToken", function () {
   let CotToken;
@@ -11,7 +12,7 @@ describe("CotToken", function () {
 
   beforeEach(async function () {
     CotToken = await ethers.getContractFactory("CotToken");
-    [owner, addr1, addr2, _] = await ethers.getSigners();
+    [owner, addr1, addr2] = await ethers.getSigners();
 
     cotToken = await CotToken.deploy(owner.address);
     await cotToken.waitForDeployment();

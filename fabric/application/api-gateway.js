@@ -13,7 +13,7 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
-const { Gateway, Wallets } = require('fabric-network');
+const { connectToFabric } = require('../../bridging/fabric-client');
 const path = require('path');
 const fs = require('fs');
 
@@ -101,42 +101,7 @@ const requireRole = (role) => {
     };
 };
 
-// Helper function to connect to Fabric network
-const connectToFabric = async () => {
-    let gateway;
-    try {
-        // Load connection profile
-        const ccp = JSON.parse(fs.readFileSync(ccpPath, 'utf8'));
 
-        // Create a new file system based wallet for managing identities
-        const wallet = await Wallets.newFileSystemWallet(walletPath);
-
-        // Check if admin identity exists in wallet
-        const identity = await wallet.get('admin');
-        if (!identity) {
-            throw new Error('Admin identity not found in wallet');
-        }
-
-        // Create a new gateway for connecting to the peer node
-        gateway = new Gateway();
-        await gateway.connect(ccp, {
-            wallet,
-            identity: 'admin',
-            discovery: { enabled: true, asLocalhost: true }
-        });
-
-        // Get the network (channel) our contract is deployed to
-        const network = await gateway.getNetwork('sustainchannel');
-
-        // Get the contract from the network
-        const contract = network.getContract('supplychain');
-
-        return { gateway, contract };
-    } catch (error) {
-        gateway?.disconnect();
-        throw error;
-    }
-};
 
 // API Token endpoint
 apiRouter.post('/token', authenticateApiKey, (req, res) => {
@@ -229,6 +194,24 @@ apiRouter.post('/batches', authenticateJwt, requireRole('admin'), async (req, re
     }
 });
 
+apiRouter.post('/batches/:id/store', authenticateJwt, requireRole('admin'), async (req, res) => {
+    if (typeof req.body.warehouseId !== 'string' || !req.body.warehouseId.trim()) {
+        return res.status(400).json({ error: 'warehouseId is required' });
+    }
+    let connection;
+    try {
+        connection = await connectToFabric();
+        const batch = JSON.parse(Buffer.from(await connection.contract.submitTransaction(
+            'storeCottonBatch', req.params.id, req.body.warehouseId)).toString());
+        res.status(200).json({ batch });
+    } catch (error) {
+        console.error('Error storing batch:', error);
+        res.status(503).json({ error: error.message });
+    } finally {
+        connection?.gateway.disconnect();
+    }
+});
+
 // Product operations shared by the browser client.
 const productOperation = (action, status = 200) => async (req, res) => {
     let connection;
@@ -277,6 +260,26 @@ apiRouter.post('/products/:id/certifications', authenticateJwt, requireRole('adm
     productOperation(async (contract, req) => ({ product: parseResult(await contract.submitTransaction(
         'addCertification', req.params.id, req.body.certType, req.body.certId, req.body.issuer, Date.now().toString())),
     })));
+
+apiRouter.post('/finished-products', authenticateJwt, requireRole('admin'), async (req, res) => {
+    const { id, type, manufacturer, batchIds, productDate } = req.body;
+    if (![id, type, manufacturer, productDate].every(value => typeof value === 'string' && value.trim()) ||
+        !Array.isArray(batchIds) || batchIds.length === 0 || !batchIds.every(value => typeof value === 'string' && value.trim())) {
+        return res.status(400).json({ error: 'id, type, manufacturer, productDate and batchIds are required' });
+    }
+    let connection;
+    try {
+        connection = await connectToFabric();
+        const product = parseResult(await connection.contract.submitTransaction('createFinishedProduct',
+            id, type, manufacturer, JSON.stringify(batchIds), productDate));
+        res.status(201).json({ product });
+    } catch (error) {
+        console.error('Error creating finished product:', error);
+        res.status(503).json({ error: error.message });
+    } finally {
+        connection?.gateway.disconnect();
+    }
+});
 
 // Products endpoints
 apiRouter.get('/products', authenticateJwt, async (req, res) => {
@@ -388,35 +391,45 @@ apiRouter.post('/tokenize', authenticateJwt, requireRole('admin'), async (req, r
     }
 });
 
-// NFT minting endpoint
-apiRouter.post('/mint-nft', authenticateJwt, requireRole('admin'), async (req, res) => {
+apiRouter.post('/tokenize/:requestId/approve', authenticateJwt, requireRole('admin'), async (req, res) => {
     let connection;
     try {
-        const { contract } = connection = await connectToFabric();
-        const { productId } = req.body;
-
-        // Get product data
-        const productResult = await contract.evaluateTransaction('queryProduct', productId);
-        const product = JSON.parse(productResult.toString());
-
-        // In a real system, this would call the bridge service to mint an NFT
-        // For this demo, we'll simulate it by updating the product with a mock NFT token ID
-        const nftTokenId = Math.floor(Math.random() * 1000000).toString();
-
-        // Update product with NFT token ID
-        await contract.submitTransaction('mintNFT', productId, nftTokenId);
-
-        // Disconnect from gateway
-
-
-        res.status(200).json({ message: 'NFT minted successfully', productId, nftTokenId });
+        connection = await connectToFabric();
+        const request = JSON.parse(Buffer.from(await connection.contract.submitTransaction(
+            'approveTokenizationRequest', req.params.requestId)).toString());
+        res.status(200).json({ request });
     } catch (error) {
-        console.error(`Error minting NFT: ${error}`);
-        res.status(500).json({ error: error.message });
+        console.error('Error approving tokenization:', error);
+        res.status(503).json({ error: error.message });
     } finally {
         connection?.gateway.disconnect();
     }
 });
+
+// NFT minting endpoint
+const requestNFTMinting = async (req, res) => {
+    const productId = req.params.id || req.body.productId;
+    const recipient = req.body.ownerAddress || req.body.recipient;
+    if (typeof productId !== 'string' || !productId.trim() || !/^0x[0-9a-fA-F]{40}$/.test(recipient || '')) {
+        return res.status(400).json({ error: 'A productId and valid ownerAddress are required' });
+    }
+    const metadataURI = req.body.metadataURI || req.body.metadata?.uri ||
+        `data:application/json,${encodeURIComponent(JSON.stringify(req.body.metadata || { name: productId }))}`;
+    let connection;
+    try {
+        connection = await connectToFabric();
+        const product = parseResult(await connection.contract.submitTransaction('requestNFTMinting',
+            productId, recipient, metadataURI));
+        res.status(202).json({ message: 'NFT minting requested', product });
+    } catch (error) {
+        console.error('Error requesting NFT mint:', error);
+        res.status(503).json({ error: error.message });
+    } finally {
+        connection?.gateway.disconnect();
+    }
+};
+apiRouter.post('/mint-nft', authenticateJwt, requireRole('admin'), requestNFTMinting);
+apiRouter.post('/products/:id/mint-nft', authenticateJwt, requireRole('admin'), requestNFTMinting);
 
 // Health check endpoint
 apiRouter.get('/health', (req, res) => {

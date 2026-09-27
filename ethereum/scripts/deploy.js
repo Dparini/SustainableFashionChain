@@ -1,8 +1,14 @@
+import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+const require = createRequire(import.meta.url);
+const __dirname = fileURLToPath(new URL(".", import.meta.url));
 // Script to deploy the Ethereum contracts
-const hre = require("hardhat");
+import { network } from "hardhat";
+const connection = await network.create();
+const { ethers } = connection;
 
 async function main() {
-  console.log("Deploying contracts to", network.name);
+  console.log("Deploying contracts to", connection.networkName);
 
   // Get the signers
   const [deployer] = await ethers.getSigners();
@@ -10,21 +16,21 @@ async function main() {
 
   // Deploy CotToken
   console.log("Deploying CotToken...");
-  const CotToken = await hre.ethers.getContractFactory("CotToken");
+  const CotToken = await ethers.getContractFactory("CotToken");
   const cotToken = await CotToken.deploy(deployer.address);
   await cotToken.waitForDeployment();
   console.log("CotToken deployed to:", await cotToken.getAddress());
 
   // Deploy ProductNFT
   console.log("Deploying ProductNFT...");
-  const ProductNFT = await hre.ethers.getContractFactory("ProductNFT");
+  const ProductNFT = await ethers.getContractFactory("ProductNFT");
   const productNFT = await ProductNFT.deploy(deployer.address);
   await productNFT.waitForDeployment();
   console.log("ProductNFT deployed to:", await productNFT.getAddress());
 
   // Deploy CircularRewards
   console.log("Deploying CircularRewards...");
-  const CircularRewards = await hre.ethers.getContractFactory("CircularRewards");
+  const CircularRewards = await ethers.getContractFactory("CircularRewards");
   const circularRewards = await CircularRewards.deploy(
     deployer.address,
     await productNFT.getAddress(),
@@ -35,7 +41,7 @@ async function main() {
 
   // Save the contract addresses
   saveDeployment({
-    network: network.name,
+    network: connection.networkName,
     cotToken: await cotToken.getAddress(),
     productNFT: await productNFT.getAddress(),
     circularRewards: await circularRewards.getAddress(),

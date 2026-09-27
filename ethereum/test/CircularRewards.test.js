@@ -1,6 +1,7 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
-const { parseEther } = require("ethers");
+import { expect } from "chai";
+import { network } from "hardhat";
+const { ethers } = await network.create();
+import { parseEther } from "ethers";
 
 describe("CircularRewards", function () {
   let CotToken;
@@ -66,15 +67,6 @@ describe("CircularRewards", function () {
       ["batch001", "batch002"]
     );
 
-    // Log contract addresses for debugging
-    console.log("Contract Addresses:");
-    console.log("CotToken:", await cotToken.getAddress());
-    console.log("ProductNFT:", await productNFT.getAddress());
-    console.log("CircularRewards:", await circularRewards.getAddress());
-
-    // Check token ownership for debugging
-    console.log("Token 1 Owner:", await productNFT.ownerOf(1n));
-    console.log("Is consumer the owner?", (await productNFT.ownerOf(1n)) === consumer.address);
   });
 
   describe("Deployment", function () {
@@ -90,11 +82,6 @@ describe("CircularRewards", function () {
     it("Should set up default reward configurations", async function () {
       // Check the "Recycle" action config (exists by default)
       const recycleConfig = await circularRewards.rewardConfigs("Recycle");
-      console.log("Recycle config:", {
-        actionType: recycleConfig.actionType,
-        baseReward: recycleConfig.baseReward.toString(),
-        active: recycleConfig.active
-      });
 
       expect(recycleConfig.actionType).to.equal("Recycle");
       expect(recycleConfig.baseReward).to.equal(parseEther("50"));
@@ -123,7 +110,7 @@ describe("CircularRewards", function () {
     it("Should fail if non-admin tries to add a reward config", async function () {
       await expect(
         circularRewards.connect(addr1).addRewardConfig("Donate", parseEther("10"))
-      ).to.be.reverted;
+      ).to.be.revert(ethers);
     });
 
     it("Should allow admin to update an existing reward config", async function () {
@@ -155,15 +142,6 @@ describe("CircularRewards", function () {
 
   describe("Reward Issuance", function () {
     it("Should allow verifier to issue rewards for recycling", async function () {
-      console.log("Testing recycling rewards...");
-      console.log("Verifier address:", verifier.address);
-      console.log("Consumer address:", consumer.address);
-      console.log("Is verifier role assigned:", await circularRewards.hasRole(await circularRewards.VERIFIER_ROLE(), verifier.address));
-
-      // Check product state before recycling
-      const productDataBefore = await productNFT.productData(1n);
-      console.log("Product recycled before:", productDataBefore.recycled);
-
       // Issue a reward for recycling
       const tx = await circularRewards.connect(verifier).issueReward(
         consumer.address,
@@ -172,9 +150,7 @@ describe("CircularRewards", function () {
         "Recycled at certified facility"
       );
 
-      // Wait for transaction receipt to debug
-      const receipt = await tx.wait();
-      console.log("Transaction succeeded with status:", receipt.status);
+      await tx.wait();
 
       // Check that tokens were minted to the consumer
       const rewardAmount = parseEther("50");
@@ -214,7 +190,7 @@ describe("CircularRewards", function () {
           "Recycle",
           "Recycled at certified facility"
         )
-      ).to.be.reverted;
+      ).to.be.revert(ethers);
     });
 
     it("Should fail if action type is inactive", async function () {
@@ -233,7 +209,7 @@ describe("CircularRewards", function () {
           "Repair",
           "Repaired torn seam"
         )
-      ).to.be.reverted;
+      ).to.be.revert(ethers);
     });
 
     it("Should fail if user doesn't own the token", async function () {
@@ -248,7 +224,7 @@ describe("CircularRewards", function () {
           "Recycle",
           "Recycled at certified facility"
         )
-      ).to.be.reverted;
+      ).to.be.revert(ethers);
     });
   });
 
@@ -261,7 +237,7 @@ describe("CircularRewards", function () {
     it("Should not allow non-admin to add a verifier", async function () {
       await expect(
         circularRewards.connect(addr1).addVerifier(addr1.address)
-      ).to.be.reverted;
+      ).to.be.revert(ethers);
     });
   });
 });

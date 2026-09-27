@@ -7,7 +7,7 @@
 
 'use strict';
 
-const { Gateway, Wallets } = require('fabric-network');
+const { connectToFabric } = require('./fabric-client');
 const { ethers } = require('ethers');
 const fs = require('fs');
 const path = require('path');
@@ -22,12 +22,19 @@ const logger = winston.createLogger({
   level: 'info',
   format: winston.format.combine(
     winston.format.timestamp(),
+    winston.format(info => {
+      if (info.error instanceof Error) {
+        const { name, message, stack, code } = info.error;
+        info.error = { name, message, stack, ...(code === undefined ? {} : { code }) };
+      }
+      return info;
+    })(),
     winston.format.json()
   ),
   defaultMeta: { service: 'optimized-bridge' },
   transports: [
     new winston.transports.Console(),
-    new winston.transports.File({ filename: 'optimized-bridge.log' })
+    new winston.transports.File({ filename: path.join(__dirname, 'optimized-bridge.log') })
   ]
 });
 
@@ -59,6 +66,7 @@ class OptimizedBridge extends EventEmitter {
     // Initialize Ethereum provider and contracts
     this.provider = null;
     this.wallet = null;
+    this.transactionSigner = null;
     this.sidechainBridge = null;
     this.cotToken = null;
     this.productNFT = null;
@@ -133,6 +141,8 @@ class OptimizedBridge extends EventEmitter {
       }
 
       logger.info(`Connected to Ethereum with address: ${this.wallet.address}`);
+      // All contracts share this account; keep one nonce sequence across them.
+      this.transactionSigner = new ethers.NonceManager(this.wallet);
 
       // Load contract ABIs
       const sidechainBridgeAbi = JSON.parse(fs.readFileSync(path.join(this.config.abiDir, 'SidechainBridge.json'), 'utf8')).abi;
@@ -143,19 +153,19 @@ class OptimizedBridge extends EventEmitter {
       this.sidechainBridge = new ethers.Contract(
         this.config.sidechainBridgeAddress,
         sidechainBridgeAbi,
-        this.wallet
+        this.transactionSigner
       );
 
       this.cotToken = new ethers.Contract(
         this.config.cotTokenAddress,
         cotTokenAbi,
-        this.wallet
+        this.transactionSigner
       );
 
       this.productNFT = new ethers.Contract(
         this.config.productNFTAddress,
         productNFTAbi,
-        this.wallet
+        this.transactionSigner
       );
 
       // If using sidechain, connect to it as well
@@ -184,35 +194,17 @@ class OptimizedBridge extends EventEmitter {
     try {
       logger.info('Connecting to Hyperledger Fabric network...');
 
-      // Load connection profile
-      const connectionProfilePath = path.resolve(this.config.fabricConnectionProfilePath);
-      const connectionProfile = JSON.parse(fs.readFileSync(connectionProfilePath, 'utf8'));
-
-      // Create a new file system wallet for identity
-      const walletPath = path.resolve(this.config.fabricWalletPath);
-      const wallet = await Wallets.newFileSystemWallet(walletPath);
-
-      // Check to see if identity exists in wallet
-      const identity = await wallet.get(this.config.fabricUserName);
-      if (!identity) {
-        throw new Error(`Identity ${this.config.fabricUserName} not found in wallet at ${walletPath}`);
-      }
-
-      // Create a new gateway instance for interacting with the fabric network
-      this.fabricGateway = new Gateway();
-
-      // Connect to the gateway
-      await this.fabricGateway.connect(connectionProfile, {
-        wallet,
+      const connection = await connectToFabric({
+        profilePath: this.config.fabricConnectionProfilePath,
+        walletPath: this.config.fabricWalletPath,
         identity: this.config.fabricUserName,
-        discovery: { enabled: this.config.fabricDiscovery ?? true, asLocalhost: this.config.fabricAsLocalhost ?? true }
+        channel: this.config.fabricChannelName,
+        chaincode: this.config.fabricContractName,
+        asLocalhost: this.config.fabricAsLocalhost,
       });
-
-      // Get the network channel
-      this.fabricNetwork = await this.fabricGateway.getNetwork(this.config.fabricChannelName);
-
-      // Get the contract from the network
-      this.fabricContract = this.fabricNetwork.getContract(this.config.fabricContractName);
+      this.fabricGateway = connection.gateway;
+      this.fabricNetwork = connection.network;
+      this.fabricContract = connection.contract;
 
       logger.info('Hyperledger Fabric connection established successfully');
       return true;
@@ -235,6 +227,7 @@ class OptimizedBridge extends EventEmitter {
       await this.sidechainBridge.on('NFTLockedForSidechain', this.handleNFTLocked.bind(this));
       await this.sidechainBridge.on('TokensReleasedFromSidechain', this.handleTokensReleased.bind(this));
       await this.sidechainBridge.on('NFTReleasedFromSidechain', this.handleNFTReleased.bind(this));
+      await this.productNFT.on('ProductRecycled', this.handleProductRecycled.bind(this));
 
       // Fabric events using contract listeners
       const tokenizationListener = async (event) => {
@@ -251,16 +244,15 @@ class OptimizedBridge extends EventEmitter {
       const tokenizationEventName = this.config.fabricTokenizationEventName || 'TokenizationRequested';
       const nftMintingEventName = this.config.fabricNFTMintingEventName || 'NFTMintingRequested';
 
-      await this.fabricNetwork.addBlockListener(async (blockEvent) => {
-        for (const transaction of blockEvent.getTransactionEvents()) {
-          for (const event of transaction.getEvents()) {
-            if (event.eventName === tokenizationEventName) {
-              await tokenizationListener(event);
-            } else if (event.eventName === nftMintingEventName) {
-              await nftMintingListener(event);
-            }
-          }
+      this.fabricEvents = await this.fabricNetwork.getChaincodeEvents(this.config.fabricContractName || 'supplychain');
+      this.fabricEventTask = (async () => {
+        for await (const event of this.fabricEvents) {
+          const bufferedEvent = { ...event, payload: Buffer.from(event.payload) };
+          if (event.eventName === tokenizationEventName) await tokenizationListener(bufferedEvent);
+          else if (event.eventName === nftMintingEventName) await nftMintingListener(bufferedEvent);
         }
+      })().catch(error => {
+        if (!this.stopping) logger.error('Fabric event stream failed', { error: error.message });
       });
 
       logger.info('Event listeners set up successfully');
@@ -368,7 +360,7 @@ class OptimizedBridge extends EventEmitter {
       });
 
       // Process each transaction in the batch
-      await this.processTransactionsInBatch(transactions, this.currentBatchId, this.currentMerkleTree);
+      const failedTransactions = await this.processTransactionsInBatch(transactions, this.currentBatchId, this.currentMerkleTree);
 
       // Update statistics
       this.stats.totalBatches++;
@@ -377,23 +369,32 @@ class OptimizedBridge extends EventEmitter {
       const gasSavedEstimate = (transactions.length * 150000) - Number(receipt.gasUsed);
       this.stats.totalGasSaved += gasSavedEstimate;
 
-      logger.info(`Batch ${this.currentBatchId} processed successfully`, {
-        batchId: this.currentBatchId,
-        transactionCount: transactions.length,
-        gasSaved: gasSavedEstimate
-      });
-
-      // Emit event for successful batch processing
-      this.emit('batchProcessed', {
-        batchId: this.currentBatchId,
-        transactionCount: transactions.length,
-        merkleRoot
-      });
+      if (failedTransactions > 0) {
+        logger.warn(`Batch ${this.currentBatchId} submitted with ${failedTransactions} failed transactions`, {
+          batchId: this.currentBatchId, failedTransactions, transactionCount: transactions.length
+        });
+        this.emit('batchProcessingFailed', {
+          batchId: this.currentBatchId, failedTransactions, transactionCount: transactions.length
+        });
+      } else {
+        logger.info(`Batch ${this.currentBatchId} processed successfully`, {
+          batchId: this.currentBatchId,
+          transactionCount: transactions.length,
+          gasSaved: gasSavedEstimate
+        });
+        this.emit('batchProcessed', {
+          batchId: this.currentBatchId,
+          transactionCount: transactions.length,
+          merkleRoot
+        });
+      }
     } catch (error) {
       // In case of failure, requeue transactions
       this.fabricToEthereumQueue.unshift(...transactions);
 
-      logger.error(`Failed to process batch: ${error.message}`, { error });
+      if (error.code === 'NONCE_EXPIRED') this.transactionSigner?.reset();
+
+      logger.error(`Failed to process batch: ${error.shortMessage || error.message}`, { error });
 
       // Emit event for failed batch processing
       this.emit('batchProcessingFailed', {
@@ -412,6 +413,7 @@ class OptimizedBridge extends EventEmitter {
    * @param {MerkleTree} merkleTree Merkle tree for the batch
    */
   async processTransactionsInBatch(transactions, batchId, merkleTree) {
+    let failedTransactions = 0;
     for (const tx of transactions) {
       try {
         // Get merkle proof for this transaction
@@ -438,6 +440,7 @@ class OptimizedBridge extends EventEmitter {
           batchId
         });
       } catch (error) {
+        failedTransactions++;
         this.stats.failedFabricToEthereumTx++;
         this.fabricToEthereumQueue.push(tx);
 
@@ -449,6 +452,7 @@ class OptimizedBridge extends EventEmitter {
         });
       }
     }
+    return failedTransactions;
   }
 
   /**
@@ -606,17 +610,20 @@ class OptimizedBridge extends EventEmitter {
 
       // Mint NFT on Ethereum
       const tx = await this.productNFT.mintProduct(
+        transaction.recipient || this.wallet.address,
         transaction.fabricProductId,
         transaction.productType,
         transaction.manufacturer,
-        transaction.cottonBatchIds,
-        transaction.recipient || this.wallet.address
+        transaction.metadataURI,
+        transaction.metadataURI,
+        transaction.cottonBatchIds
       );
 
       const receipt = await tx.wait(this.config.requiredConfirmations);
 
       // Get token ID from event
       const mintEvent = receipt.logs.find(e => e.fragment?.name === 'ProductMinted');
+      if (!mintEvent) throw new Error('ProductMinted event missing from Ethereum receipt');
       const tokenId = mintEvent.args.tokenId.toString();
 
       // After successful Ethereum processing, update Fabric state
@@ -916,8 +923,22 @@ class OptimizedBridge extends EventEmitter {
       productType: payload.productType,
       manufacturer: payload.manufacturer,
       cottonBatchIds: payload.cottonBatchIds,
+      metadataURI: payload.metadataURI,
       recipient: payload.recipient
     });
+  }
+
+  async handleProductRecycled(tokenId) {
+    try {
+      const product = await this.productNFT.productData(tokenId);
+      await this.fabricContract.submitTransaction('updateStatus', product.fabricProductId,
+        'RECYCLING_INITIATED', Date.now().toString(), '{}');
+      logger.info('Product recycling recorded on Fabric', {
+        productId: product.fabricProductId, tokenId: tokenId.toString()
+      });
+    } catch (error) {
+      logger.error(`Failed to record product recycling on Fabric: ${error.message}`, { error });
+    }
   }
 
   /**
@@ -1051,6 +1072,9 @@ class OptimizedBridge extends EventEmitter {
       }
 
       // Disconnect from Fabric
+      this.stopping = true;
+      this.fabricEvents?.close();
+      await this.fabricEventTask;
       if (this.fabricGateway) {
         await this.fabricGateway.disconnect();
       }

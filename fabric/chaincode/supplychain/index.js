@@ -2,6 +2,11 @@
 
 const { Contract } = require('fabric-contract-api');
 
+function transactionTimestamp(ctx) {
+    const { seconds, nanos } = ctx.stub.getTxTimestamp();
+    return (BigInt(seconds.toString()) * 1000n + BigInt(Math.floor(nanos / 1000000))).toString();
+}
+
 class SupplyChainContract extends Contract {
 
     async initLedger(ctx) {
@@ -125,7 +130,7 @@ class SupplyChainContract extends Contract {
             currentCustody: farmId,
             custodyHistory: [{
                 holder: farmId,
-                timestamp: Date.now().toString(),
+                timestamp: transactionTimestamp(ctx),
                 location: location
             }],
             certifications: [],
@@ -133,11 +138,29 @@ class SupplyChainContract extends Contract {
             history: [{
                 type: 'Creation',
                 actor: farmId,
-                timestamp: Date.now().toString(),
+                timestamp: transactionTimestamp(ctx),
                 details: 'Cotton batch registered on blockchain'
             }]
         };
 
+        await ctx.stub.putState(id, Buffer.from(JSON.stringify(batch)));
+        return JSON.stringify(batch);
+    }
+
+    async storeCottonBatch(ctx, id, warehouseId) {
+        const batchAsBytes = await ctx.stub.getState(id);
+        if (!batchAsBytes || batchAsBytes.length === 0) throw new Error(`Batch ${id} does not exist`);
+        const batch = JSON.parse(batchAsBytes.toString());
+        if (batch.type !== 'cotton' || batch.status !== 'HARVESTED') {
+            throw new Error(`Batch ${id} must be harvested cotton to enter storage`);
+        }
+        batch.status = 'STORED';
+        batch.location = warehouseId;
+        batch.currentCustody = warehouseId;
+        batch.history.push({
+            type: 'Stored', actor: ctx.clientIdentity.getID(),
+            timestamp: transactionTimestamp(ctx), details: `Stored at warehouse ${warehouseId}`
+        });
         await ctx.stub.putState(id, Buffer.from(JSON.stringify(batch)));
         return JSON.stringify(batch);
     }
@@ -175,7 +198,7 @@ class SupplyChainContract extends Contract {
             quantity: requestedQuantity,
             warehouseId,
             status: 'PENDING',
-            timestamp: Date.now().toString(),
+            timestamp: transactionTimestamp(ctx),
             requester: ctx.clientIdentity.getID(),
             approver: null,
             approvalTimestamp: null,
@@ -189,7 +212,7 @@ class SupplyChainContract extends Contract {
         batch.history.push({
             type: 'TokenizationRequested',
             actor: ctx.clientIdentity.getID(),
-            timestamp: Date.now().toString(),
+            timestamp: transactionTimestamp(ctx),
             details: `Tokenization requested for ${requestedQuantity} kg at warehouse ${warehouseId}`
         });
 
@@ -217,7 +240,7 @@ class SupplyChainContract extends Contract {
         // Update request status
         request.status = 'APPROVED';
         request.approver = ctx.clientIdentity.getID();
-        request.approvalTimestamp = Date.now().toString();
+        request.approvalTimestamp = transactionTimestamp(ctx);
 
         // Store updated request
         await ctx.stub.putState(requestId, Buffer.from(JSON.stringify(request)));
@@ -234,11 +257,16 @@ class SupplyChainContract extends Contract {
         batch.history.push({
             type: 'TokenizationApproved',
             actor: ctx.clientIdentity.getID(),
-            timestamp: Date.now().toString(),
+            timestamp: transactionTimestamp(ctx),
             details: `Tokenization request ${requestId} approved for ${request.quantity} kg`
         });
 
         await ctx.stub.putState(request.batchId, Buffer.from(JSON.stringify(batch)));
+
+        ctx.stub.setEvent('TokenizationRequested', Buffer.from(JSON.stringify({
+            requestId, batchId: request.batchId, quantity: request.quantity,
+            warehouseId: request.warehouseId
+        })));
 
         return JSON.stringify(request);
     }
@@ -282,13 +310,32 @@ class SupplyChainContract extends Contract {
         batch.history.push({
             type: 'TokenizationCompleted',
             actor: ctx.clientIdentity.getID(),
-            timestamp: Date.now().toString(),
+            timestamp: transactionTimestamp(ctx),
             details: `Tokenization completed on Ethereum with transaction ${ethereumTransactionId}`
         });
 
         await ctx.stub.putState(request.batchId, Buffer.from(JSON.stringify(batch)));
 
         return JSON.stringify({ request, batch });
+    }
+
+    async requestNFTMinting(ctx, productId, recipient, metadataURI) {
+        const productAsBytes = await ctx.stub.getState(productId);
+        if (!productAsBytes || productAsBytes.length === 0) throw new Error(`Product ${productId} does not exist`);
+        const product = JSON.parse(productAsBytes.toString());
+        if (product.status !== 'FINISHED' || product.nftTokenId) {
+            throw new Error(`Product ${productId} must be finished and not already minted`);
+        }
+        if (!/^0x[0-9a-fA-F]{40}$/.test(recipient) || !metadataURI) {
+            throw new Error('A valid recipient and metadata URI are required');
+        }
+        product.status = 'NFT_MINT_PENDING';
+        await ctx.stub.putState(productId, Buffer.from(JSON.stringify(product)));
+        ctx.stub.setEvent('NFTMintingRequested', Buffer.from(JSON.stringify({
+            productId, productType: product.type, manufacturer: product.manufacturer,
+            cottonBatchIds: product.batchIDs, recipient, metadataURI
+        })));
+        return JSON.stringify(product);
     }
 
     // Mint NFT for a product
@@ -319,7 +366,7 @@ class SupplyChainContract extends Contract {
         product.history.push({
             type: 'NFTMinted',
             actor: ctx.clientIdentity.getID(),
-            timestamp: Date.now().toString(),
+            timestamp: transactionTimestamp(ctx),
             details: `NFT minted on Ethereum with token ID ${nftTokenId}`
         });
 
@@ -379,12 +426,12 @@ class SupplyChainContract extends Contract {
             nftTokenId: null,
             custodyHistory: [{
                 holder: manufacturer,
-                timestamp: Date.now().toString()
+                timestamp: transactionTimestamp(ctx)
             }],
             history: [{
                 type: 'Creation',
                 actor: manufacturer,
-                timestamp: Date.now().toString(),
+                timestamp: transactionTimestamp(ctx),
                 details: `Finished product created from ${batchIdArray.length} batch(es)`
             }]
         };

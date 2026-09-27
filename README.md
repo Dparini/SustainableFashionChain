@@ -99,15 +99,11 @@ returns a failure if any vulnerability remains; no advisories are suppressed.
 
 The frontend uses Vite and Vitest. `npm start` still uses port 3000,
 `npm run build` still writes `frontend/build`, and `REACT_APP_API_URL` remains
-supported. Bridge and browser wallet integrations use Ethers 6. The backend uses
-Fabric SDK 2.2, bcrypt 6, Multer 2, Nodemailer 10, and UUID 11. Hardhat 2 uses its
-Ethers and Chai plugins directly; the toolbox's gas reporter, coverage, TypeChain,
-Ignition and explorer-verification tasks are no longer installed.
+supported. Bridge and browser wallet integrations use Ethers 6. Fabric clients
+use Fabric Gateway, and the Ethereum project uses Hardhat 3.
 
-The `jsrsasign` override updates Fabric's enrollment/certificate implementation
-to version 11. Hardhat overrides update its ZIP, HTTP, WebSocket, serialization,
-temporary-file and UUID dependencies beyond the older ranges declared upstream.
-Revisit these overrides when updating their parent packages.
+Dependency overrides are declared in the individual package manifests. Revisit
+them when updating their parent packages.
 
 Compatibility checks:
 
@@ -123,13 +119,6 @@ npm test
 
 The separate Ethereum end-to-end suite needs running Fabric/API and Ethereum
 services and is not covered by the offline checks above.
-
-Remaining security limitation: Fabric SDK 2.2 and Hardhat 2 still depend on
-`elliptic`, which has an unpatched low-severity advisory,
-[GHSA-848j-6mx2-7j84](https://github.com/advisories/GHSA-848j-6mx2-7j84).
-Removing it requires replacing those SDK/tooling dependencies; a patched
-`elliptic` release is not currently available. Its parent packages are also
-reported by npm, so audit counts exceed the number of distinct advisories.
 
 The frontend entry point is split into separate pages, and the development server
 proxies `/api` to `http://127.0.0.1:3001`. Override `API_PROXY_TARGET` for a different
@@ -163,10 +152,25 @@ npm run lint --prefix fabric/application
 npm test --prefix bridging
 ```
 
-`npm test` in `ethereum` runs the offline contract suite. Run `npm run test:e2e`
-explicitly with `API_TOKEN`, a running API/Fabric network, deployed Ethereum
-contracts and bridge to run the live integration suite. Failed requests or
-assertions now fail that suite rather than being silently skipped.
+`npm test` in `ethereum` runs the offline contract suite. The live suite covers
+cotton registration, storage, approval, ERC-20 minting, finished product creation,
+NFT minting and recycling across Fabric, the API, the bridge and Ethereum. Start
+those services and deploy the contracts before running:
+
+```sh
+API_KEY=admin-api-key \
+CONTRACT_ADDRESSES_FILE=/path/to/deployed-contract-addresses.json \
+ETHEREUM_SIGNER_INDEX=1 \
+TOKEN_RECIPIENT_ADDRESS=<bridge-ethereum-address> \
+npm run test:e2e --prefix ethereum
+```
+
+`API_TOKEN` can replace `API_KEY`. The API key shown above is the repository's
+local demonstration key. `TOKEN_RECIPIENT_ADDRESS` is needed when the bridge
+mints CotTokens to its own account; use a separate Ethereum signer for the NFT
+owner and recycler. Set `API_URL` and `ETHEREUM_PROVIDER_URL` if the services do
+not use ports 3001 and 8545. A `BRIDGE_CONFIG` file takes precedence over values
+in the bridge's `.env` file.
 
 Container builds use different contexts:
 

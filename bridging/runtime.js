@@ -19,7 +19,10 @@ function createConfiguredBridge() {
     fabricChannelName: process.env.FABRIC_CHANNEL,
     fabricContractName: process.env.FABRIC_CHAINCODE,
   };
-  Object.assign(config, Object.fromEntries(Object.entries(fromEnv).filter(([, value]) => value !== undefined)));
+  // Values explicitly supplied by BRIDGE_CONFIG take precedence over local .env defaults.
+  for (const [key, value] of Object.entries(fromEnv)) {
+    if (config[key] === undefined && value !== undefined) config[key] = value;
+  }
   config.fabricUserName ||= 'admin';
   config.fabricChannelName ||= 'sustainchannel';
   config.fabricContractName ||= 'supplychain';

@@ -3,19 +3,17 @@ const request = require('supertest');
 require('ejs');
 const { app, startServer, stopServer } = require('../app');
 const jwt = require('jsonwebtoken');
-const { Gateway, Wallets } = require('fabric-network');
+const { connectToFabric } = require('../../../bridging/fabric-client');
 const fs = require('fs');
 
-jest.mock('fabric-network', () => ({ Gateway: jest.fn(), Wallets: { newFileSystemWallet: jest.fn() } }));
+jest.mock('../../../bridging/fabric-client', () => ({ connectToFabric: jest.fn() }));
 const mockContract = { evaluateTransaction: jest.fn(), submitTransaction: jest.fn() };
 const mockGateway = { connect: jest.fn(), getNetwork: jest.fn(), disconnect: jest.fn() };
 let profileRead;
 const token = role => jwt.sign({ id: 'test', role }, 'sustainablefashionchain-jwt-secret');
 beforeEach(() => {
   jest.clearAllMocks();
-  Gateway.mockImplementation(() => mockGateway);
-  mockGateway.getNetwork.mockResolvedValue({ getContract: () => mockContract });
-  Wallets.newFileSystemWallet.mockResolvedValue({ get: async () => ({ type: 'X.509' }) });
+  connectToFabric.mockResolvedValue({ gateway: mockGateway, contract: mockContract });
   const read = fs.readFileSync;
   profileRead = jest.spyOn(fs, 'readFileSync').mockImplementation((file, ...args) => String(file).endsWith('connection-org1.json') ? '{}' : read(file, ...args));
 });
@@ -39,7 +37,7 @@ test('product reads and writes enforce authentication and roles', async () => {
 });
 test('invalid products are rejected before opening a Fabric connection', async () => {
   await request(app).post('/api/v1/products').set('Authorization', `Bearer ${token('admin')}`).send({ id: 'p' }).expect(400);
-  expect(Gateway).not.toHaveBeenCalled();
+  expect(connectToFabric).not.toHaveBeenCalled();
 });
 test('product registration calls the existing chaincode signature', async () => {
   const product = { id: 'p', type: 'cotton', origin: 'farm' };
@@ -77,4 +75,131 @@ test('product lookup failure also releases its gateway', async () => {
 
 test('inherited object properties cannot be used as API keys', async () => {
   await request(app).post('/api/v1/token').set('x-api-key', 'toString').expect(401);
+});
+
+test('product flow persists through the real chaincode and API routes', async () => {
+  const SupplyChainContract = require('../../chaincode/supplychain');
+  const chaincode = new SupplyChainContract();
+  const state = new Map();
+  const context = {
+    stub: {
+      getState: async key => state.get(key) || Buffer.alloc(0),
+      putState: async (key, value) => { state.set(key, value); },
+    },
+  };
+  const contract = {
+    submitTransaction: async (name, ...args) => Buffer.from(await chaincode[name](context, ...args)),
+    evaluateTransaction: async (name, ...args) => Buffer.from(await chaincode[name](context, ...args)),
+  };
+  connectToFabric.mockResolvedValue({ gateway: mockGateway, contract });
+  const auth = { Authorization: `Bearer ${token('admin')}` };
+  const product = { id: 'FLOW-001', type: 'cotton', origin: 'Test Farm', metadata: { quality: 'organic' } };
+
+  const created = await request(app).post('/api/v1/products').set(auth).send(product).expect(201);
+  expect(created.body.product).toMatchObject({ id: product.id, status: 'REGISTERED', metadata: product.metadata });
+
+  const certified = await request(app).post(`/api/v1/products/${product.id}/status`).set(auth)
+    .send({ newStatus: 'CERTIFIED', additionalData: { inspector: 'Test Inspector' } }).expect(200);
+  expect(certified.body.product).toMatchObject({ status: 'CERTIFIED', inspector: 'Test Inspector' });
+
+  const transferred = await request(app).post(`/api/v1/products/${product.id}/transfer`).set(auth)
+    .send({ newHolder: 'Test Manufacturer', location: 'Test Factory' }).expect(200);
+  expect(transferred.body.product.custodyHistory).toHaveLength(2);
+  expect(transferred.body.product.custodyHistory[1]).toMatchObject({ holder: 'Test Manufacturer', location: 'Test Factory' });
+
+  const read = await request(app).get(`/api/v1/products/${product.id}`).set(auth).expect(200);
+  expect(read.body).toMatchObject({ id: product.id, status: 'CERTIFIED', inspector: 'Test Inspector' });
+
+  const verified = await request(app).get(`/api/v1/verify/${product.id}`).expect(200);
+  expect(verified.body).toMatchObject({ verified: true, productId: product.id, product: read.body });
+  expect(mockGateway.disconnect).toHaveBeenCalledTimes(5);
+});
+
+test('approved cotton tokenization emits a bridge event with stored batch data', async () => {
+  const SupplyChainContract = require('../../chaincode/supplychain');
+  const chaincode = new SupplyChainContract();
+  const state = new Map();
+  const setEvent = jest.fn();
+  const context = {
+    stub: {
+      getState: async key => state.get(key) || Buffer.alloc(0),
+      putState: async (key, value) => { state.set(key, value); },
+      setEvent,
+      getTxTimestamp: () => ({ seconds: 1790531000, nanos: 123000000 }),
+    },
+    clientIdentity: { getID: () => 'test-admin' },
+  };
+  const contract = {
+    submitTransaction: async (name, ...args) => Buffer.from(await chaincode[name](context, ...args)),
+    evaluateTransaction: async (name, ...args) => Buffer.from(await chaincode[name](context, ...args)),
+  };
+  connectToFabric.mockResolvedValue({ gateway: mockGateway, contract });
+  const auth = { Authorization: `Bearer ${token('admin')}` };
+  const batchId = 'BATCH-FLOW-001';
+
+  await request(app).post('/api/v1/batches').set(auth).send({
+    id: batchId, farmID: 'Test Farm', quantity: 10, organic: true, fairTrade: true,
+    harvestDate: '2026-09-27', location: 'Farm',
+  }).expect(201);
+  const stored = await request(app).post(`/api/v1/batches/${batchId}/store`).set(auth)
+    .send({ warehouseId: 'WH-1' }).expect(200);
+  expect(stored.body.batch).toMatchObject({ status: 'STORED', location: 'WH-1' });
+
+  const requested = await request(app).post('/api/v1/tokenize').set(auth)
+    .send({ batchID: batchId, quantity: 3, warehouseID: 'WH-1' }).expect(201);
+  expect(setEvent).not.toHaveBeenCalled();
+  const approved = await request(app).post(`/api/v1/tokenize/${requested.body.requestID}/approve`).set(auth).expect(200);
+  expect(approved.body.request.status).toBe('APPROVED');
+  expect(setEvent).toHaveBeenCalledTimes(1);
+  expect(setEvent.mock.calls[0][0]).toBe('TokenizationRequested');
+  expect(JSON.parse(setEvent.mock.calls[0][1].toString())).toEqual({
+    requestId: requested.body.requestID, batchId, quantity: 3, warehouseId: 'WH-1',
+  });
+  await request(app).post(`/api/v1/tokenize/${requested.body.requestID}/approve`).set(auth).expect(503);
+  expect(setEvent).toHaveBeenCalledTimes(1);
+});
+
+test('finished product requests an NFT and records its Ethereum token ID', async () => {
+  const SupplyChainContract = require('../../chaincode/supplychain');
+  const chaincode = new SupplyChainContract();
+  const state = new Map([['COTTON-NFT', Buffer.from(JSON.stringify({
+    id: 'COTTON-NFT', type: 'cotton', organic: true, status: 'TOKENIZED',
+  }))]]);
+  const setEvent = jest.fn();
+  const context = {
+    stub: {
+      getState: async key => state.get(key) || Buffer.alloc(0),
+      putState: async (key, value) => { state.set(key, value); },
+      getTxTimestamp: () => ({ seconds: 1790531000, nanos: 0 }),
+      setEvent,
+    },
+    clientIdentity: { getID: () => 'test-admin' },
+  };
+  const contract = {
+    submitTransaction: async (name, ...args) => Buffer.from(await chaincode[name](context, ...args)),
+    evaluateTransaction: async (name, ...args) => Buffer.from(await chaincode[name](context, ...args)),
+  };
+  connectToFabric.mockResolvedValue({ gateway: mockGateway, contract });
+  const auth = { Authorization: `Bearer ${token('admin')}` };
+
+  const created = await request(app).post('/api/v1/finished-products').set(auth).send({
+    id: 'SHIRT-NFT', type: 'finished', manufacturer: 'Test Maker',
+    batchIds: ['COTTON-NFT'], productDate: '2026-09-27',
+  }).expect(201);
+  expect(created.body.product).toMatchObject({ status: 'FINISHED', batchIDs: ['COTTON-NFT'] });
+
+  const ownerAddress = '0x1234567890123456789012345678901234567890';
+  const requested = await request(app).post('/api/v1/products/SHIRT-NFT/mint-nft').set(auth)
+    .send({ ownerAddress, metadata: { name: 'Test Shirt' } }).expect(202);
+  expect(requested.body.product.status).toBe('NFT_MINT_PENDING');
+  expect(setEvent).toHaveBeenCalledTimes(1);
+  const [name, payload] = setEvent.mock.calls[0];
+  expect(name).toBe('NFTMintingRequested');
+  expect(JSON.parse(payload.toString())).toMatchObject({
+    productId: 'SHIRT-NFT', recipient: ownerAddress, cottonBatchIds: ['COTTON-NFT'],
+  });
+
+  await contract.submitTransaction('mintNFT', 'SHIRT-NFT', '42');
+  const product = await request(app).get('/api/v1/products/SHIRT-NFT').set(auth).expect(200);
+  expect(product.body).toMatchObject({ status: 'TOKENIZED', nftTokenId: '42' });
 });

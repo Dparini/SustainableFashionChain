@@ -1,53 +1,25 @@
-require("@nomicfoundation/hardhat-ethers");
-require("@nomicfoundation/hardhat-chai-matchers");
-require("dotenv").config();
+import hardhatEthers from '@nomicfoundation/hardhat-ethers';
+import hardhatMatchers from '@nomicfoundation/hardhat-ethers-chai-matchers';
+import hardhatMocha from '@nomicfoundation/hardhat-mocha';
+import 'dotenv/config';
 
-/** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
+const remoteNetworks = Object.fromEntries(['sepolia', 'mainnet'].flatMap(name => {
+  const url = process.env[`${name.toUpperCase()}_URL`];
+  return url ? [[name, { type: 'http', url, accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [] }]] : [];
+}));
+
+export default {
+  plugins: [hardhatEthers, hardhatMatchers, hardhatMocha],
   solidity: {
-    version: "0.8.18",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 200
-      },
-      // Comment out viaIR to get proper revert messages
-      // viaIR: true,
-      debug: {
-        revertStrings: "debug" // Change from "strip" to "debug"
-      }
-    }
+    version: '0.8.18',
+    settings: { optimizer: { enabled: true, runs: 200 }, debug: { revertStrings: 'debug' } },
   },
   networks: {
-    hardhat: {
-      chainId: 1337
-    },
+    default: { type: 'edr-simulated', chainId: 1337 },
     localhost: {
-      url: "http://127.0.0.1:8545",
-      accounts: {
-        mnemonic: "test test test test test test test test test test test junk"
-      }
+      type: 'http', url: 'http://127.0.0.1:8545',
+      accounts: { mnemonic: 'test test test test test test test test test test test junk' },
     },
-    goerli: {
-      url: process.env.GOERLI_URL || "",
-      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : []
-    },
-    sepolia: {
-      url: process.env.SEPOLIA_URL || "",
-      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : []
-    },
-    mainnet: {
-      url: process.env.MAINNET_URL || "",
-      accounts: process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : []
-    }
+    ...remoteNetworks,
   },
-  etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY
-  },
-  paths: {
-    sources: "./contracts",
-    tests: "./test",
-    cache: "./cache",
-    artifacts: "./artifacts"
-  }
 };

@@ -1,6 +1,7 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
-const { parseEther } = require("ethers");
+import { expect } from "chai";
+import { network } from "hardhat";
+const { ethers } = await network.create();
+import { parseEther } from "ethers";
 
 describe("ProductNFT", function () {
   let ProductNFT;
@@ -12,7 +13,7 @@ describe("ProductNFT", function () {
 
   beforeEach(async function () {
     ProductNFT = await ethers.getContractFactory("ProductNFT");
-    [owner, addr1, addr2, minter, _] = await ethers.getSigners();
+    [owner, addr1, addr2, minter] = await ethers.getSigners();
 
     productNFT = await ProductNFT.deploy(owner.address);
     await productNFT.waitForDeployment();
@@ -68,7 +69,7 @@ describe("ProductNFT", function () {
           testTokenURI,
           []
         )
-      ).to.be.reverted; // Use .to.be.reverted instead of .to.be.revertedWith
+      ).to.be.revert(ethers); // Use .to.be.reverted instead of .to.be.revertedWith
     });
 
     it("Should require non-empty fabric ID", async function () {
@@ -113,7 +114,7 @@ describe("ProductNFT", function () {
           testTokenURI,
           []
         )
-      ).to.be.reverted;
+      ).to.be.revert(ethers);
     });
   });
 
@@ -149,7 +150,7 @@ describe("ProductNFT", function () {
     it("Should not allow non-token-owners to initiate recycling", async function () {
       await expect(
         productNFT.connect(addr2).recycleProduct(1n)
-      ).to.be.reverted; // Use .to.be.reverted instead of .to.be.revertedWith
+      ).to.be.revert(ethers); // Use .to.be.reverted instead of .to.be.revertedWith
     });
 
     it("Should not allow recycling a product twice", async function () {

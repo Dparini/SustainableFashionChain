@@ -3,7 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const path = require("path");
-const { Gateway, Wallets } = require('fabric-network');
+const { connectToFabric: openFabricConnection } = require('../../bridging/fabric-client');
 const fs = require("fs");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
@@ -71,32 +71,7 @@ let contract = null;
 
 async function connectToFabric() {
     try {
-        // Load connection profile
-        const ccpPath = path.resolve(__dirname, "..", "network", "organizations", "peerOrganizations", "org1.example.com", "connection-org1.json");
-        const ccp = JSON.parse(fs.readFileSync(ccpPath, "utf8"));
-
-        // Create a new wallet for identity
-        const walletPath = path.join(__dirname, "wallet");
-        const wallet = await Wallets.newFileSystemWallet(walletPath);
-
-        // Check if admin identity exists
-        const identity = await wallet.get("admin");
-        if (!identity) {
-            console.log("Admin identity not found in wallet. Run enrollAdmin.js first");
-            return false;
-        }
-
-        // Create a new gateway instance
-        gateway = new Gateway();
-        await gateway.connect(ccp, {
-            wallet,
-            identity: "admin",
-            discovery: { enabled: true, asLocalhost: true }
-        });
-
-        // Get the network and contract
-        network = await gateway.getNetwork("sustainchannel");
-        contract = network.getContract("supplychain");
+        ({ gateway, network, contract } = await openFabricConnection());
 
         console.log("Connected to Fabric network");
         return true;

@@ -106,5 +106,4 @@ contract CotToken is Context, ERC20, ERC20Burnable, AccessControl, Ownable {
         _;
     }
 
-    // ... (rest of the previous contract remains the same)
  }

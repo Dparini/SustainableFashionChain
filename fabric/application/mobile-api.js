@@ -8,7 +8,7 @@
 'use strict';
 
 const express = require('express');
-const { Gateway, Wallets } = require('fabric-network');
+const { connectToFabric } = require('../../bridging/fabric-client');
 const { v4: uuidv4 } = require('uuid');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
@@ -48,40 +48,7 @@ const authLimiter = rateLimit({
     message: 'Too many login attempts, please try again after 15 minutes'
 });
 
-// Helper function to connect to Fabric network
-const connectToFabric = async () => {
-    try {
-        // Load connection profile
-        const ccp = JSON.parse(fs.readFileSync(ccpPath, 'utf8'));
 
-        // Create a new file system based wallet for managing identities
-        const wallet = await Wallets.newFileSystemWallet(walletPath);
-
-        // Check if admin identity exists in wallet
-        const identity = await wallet.get('admin');
-        if (!identity) {
-            throw new Error('Admin identity not found in wallet');
-        }
-
-        // Create a new gateway for connecting to the peer node
-        const gateway = new Gateway();
-        await gateway.connect(ccp, {
-            wallet,
-            identity: 'admin',
-            discovery: { enabled: true, asLocalhost: true }
-        });
-
-        // Get the network (channel) our contract is deployed to
-        const network = await gateway.getNetwork('sustainchannel');
-
-        // Get the contract from the network
-        const contract = network.getContract('supplychain');
-
-        return { gateway, contract };
-    } catch (error) {
-        throw error;
-    }
-};
 
 // Middleware to verify JWT token
 const authenticateToken = (req, res, next) => {
