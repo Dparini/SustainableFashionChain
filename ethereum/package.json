@@ -4,7 +4,7 @@
   "description": "Ethereum Smart Contracts for Sustainable Fashion",
   "scripts": {
     "dev": "hardhat node",
-    "test": "hardhat test test/CotToken.test.js test/ProductNFT.test.js test/CircularRewards.test.js",
+    "test": "hardhat test test/CotToken.test.js test/ProductNFT.test.js test/CircularRewards.test.js test/ReserveInvariant.test.js test/AgentMarket.test.js",
     "deploy": "hardhat run scripts/deploy.js --network localhost",
     "test:e2e": "hardhat test test/e2e-test.js"
   },

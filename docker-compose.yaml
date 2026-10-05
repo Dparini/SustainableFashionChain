@@ -1,41 +1,38 @@
 services:
-  orderer.example.com:
-    container_name: orderer.example.com
-    image: hyperledger/fabric-orderer:2.5
-    platform: linux/amd64
+  ethereum:
+    build:
+      context: .
+      dockerfile: ethereum/Dockerfile
+    ports:
+      - "127.0.0.1:8545:8545"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8545',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jsonrpc:'2.0',id:1,method:'eth_chainId',params:[]})}).then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  bootstrap:
+    build:
+      context: .
+      dockerfile: ethereum/Dockerfile
+    depends_on:
+      ethereum:
+        condition: service_healthy
     environment:
-      - ORDERER_GENERAL_LOGLEVEL=info
-      - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
-      - ORDERER_GENERAL_GENESISMETHOD=file
-      - ORDERER_GENERAL_GENESISFILE=/var/hyperledger/orderer/genesis.block
+      ETHEREUM_PROVIDER_URL: http://ethereum:8545
+      SFC_RPC_URL: http://ethereum:8545
+      SFC_DEMO_DIR: /demo
     volumes:
-      - ./channel-artifacts:/var/hyperledger/orderer/
-    ports:
-      - 7050:7050
-
-  peer0.org1.example.com:
-    container_name: peer0.org1.example.com
-    image: hyperledger/fabric-peer:2.5
-    platform: linux/amd64
-    environment:
-      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
-      - CORE_PEER_ID=peer0.org1.example.com
-      - CORE_PEER_ADDRESS=peer0.org1.example.com:7051
-      - CORE_PEER_LISTENADDRESS=0.0.0.0:7051
-      - CORE_PEER_CHAINCODEADDRESS=peer0.org1.example.com:7052
-      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:7052
+      - demo-state:/demo
+    command: ["npx", "hardhat", "run", "scripts/demo-setup.js", "--network", "localhost"]
+  agent:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
     volumes:
-      - /var/run/docker.sock:/host/var/run/docker.sock
-    ports:
-      - 7051:7051
-      - 7052:7052
-
-  ca.org1.example.com:
-    container_name: ca.org1.example.com
-    image: hyperledger/fabric-ca:1.5
-    platform: linux/amd64
-    environment:
-      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
-      - FABRIC_CA_SERVER_CA_NAME=ca.org1.example.com
-    ports:
-      - 7054:7054
+      - demo-state:/demo
+    command: ["run", "--config", "/demo/local.json", "--audit", "/demo/decisions.jsonl"]
+volumes:
+  demo-state:

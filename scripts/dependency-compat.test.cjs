@@ -43,13 +43,15 @@ test('bridge: Ethers 6 signs validator hashes and records receipt hashes', async
   let submitted;
   bridge.fabricContract = { async submitTransaction(...args) { submitted = args; } };
   bridge.cotToken = {
-    async mintBatch(id, quantity, warehouse, recipient) {
+    async eventIdFor() { return hash; },
+    async processedEvents() { return false; },
+    async mintVerifiedBatch(txId, id, quantity, warehouse, recipient) {
       assert.equal(quantity, 1500000000000000000n);
       assert.equal(recipient, wallet.address);
-      return { async wait() { return { hash }; } };
+      return { async wait() { return { hash, status: 1 }; } };
     },
   };
-  await bridge.processTokenizationOnMainnet({ batchId: 'batch', quantity: '1.5', warehouseId: 'warehouse', requestId: 'request' });
+  await bridge.processTokenizationOnMainnet({ fabricTxId: 'a'.repeat(64), batchId: 'batch', quantity: '1.5', warehouseId: 'warehouse', requestId: 'request' });
   assert.deepEqual(submitted, ['completeTokenization', 'request', hash]);
 
   const iface = new ethers.Interface(['event ProductMinted(uint256 tokenId)']);
@@ -128,14 +130,14 @@ test('bridge: Gateway chaincode events await processing and decode Uint8Array pa
   bridge.fabricNetwork = { async getChaincodeEvents(name) {
     assert.equal(name, 'supplychain');
     return (async function* () {
-      yield { eventName: 'TokenizationRequested', payload: new TextEncoder().encode('{"requestId":"request"}') };
+      yield { eventName: 'TokenizationRequested', transactionId: 'a'.repeat(64), payload: new TextEncoder().encode('{"requestId":"request"}') };
     })();
   } };
   let received;
   bridge.handleFabricTokenizationRequest = async data => { await Promise.resolve(); received = data; };
   await bridge.setupEventListeners();
   await bridge.fabricEventTask;
-  assert.deepEqual(received, { requestId: 'request' });
+  assert.deepEqual(received, { requestId: 'request', fabricTxId: 'a'.repeat(64) });
 });
 
 test('bridge: gas statistics use bigint and report zero before any batch', () => {

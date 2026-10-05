@@ -10,13 +10,13 @@ function transactionTimestamp(ctx) {
 class SupplyChainContract extends Contract {
 
     async initLedger(ctx) {
-        console.info('============= Initializing Ledger ===========');
         // Nothing to initialize
     }
 
     // Register a new product in the supply chain
     async registerProduct(ctx, id, type, origin, timestamp, certifications, metadata) {
-        console.info('============= Register Product ===========');
+        const existing = await ctx.stub.getState(id);
+        if (existing && existing.length) throw new Error('RECORD_ALREADY_EXISTS');
 
         const product = {
             id,
@@ -38,7 +38,6 @@ class SupplyChainContract extends Contract {
 
     // Transfer custody of a product to a new holder
     async transferCustody(ctx, id, newHolder, timestamp, location) {
-        console.info('============= Transfer Custody ===========');
 
         const productAsBytes = await ctx.stub.getState(id);
         if (!productAsBytes || productAsBytes.length === 0) {
@@ -46,6 +45,7 @@ class SupplyChainContract extends Contract {
         }
 
         const product = JSON.parse(productAsBytes.toString());
+        if (product.batchId) throw new Error("USE_COTTON_STATE_MACHINE");
 
         // Add new custody record
         product.custodyHistory.push({
@@ -60,7 +60,6 @@ class SupplyChainContract extends Contract {
 
     // Update product status (e.g., harvested, processed, manufactured, etc.)
     async updateStatus(ctx, id, newStatus, timestamp, additionalData) {
-        console.info('============= Update Status ===========');
 
         const productAsBytes = await ctx.stub.getState(id);
         if (!productAsBytes || productAsBytes.length === 0) {
@@ -68,11 +67,16 @@ class SupplyChainContract extends Contract {
         }
 
         const product = JSON.parse(productAsBytes.toString());
+        if (product.batchId) throw new Error("USE_COTTON_STATE_MACHINE");
         product.status = newStatus;
 
         if (additionalData) {
             const dataObj = JSON.parse(additionalData);
-            // Merge additional data with product data
+            const reserved = new Set(['batchId', 'quantity', 'quantityKg', 'rwaStatus', 'certificationHash',
+                'fabricVerificationTxId', 'verifiedAt', 'verifiedBy', 'type', 'id', 'tokenizationId',
+                'pendingTokenizationId', 'currentCustody', 'producer', 'farmId']);
+            if (Object.keys(dataObj).some(key => reserved.has(key))) throw new Error('PROTECTED_RWA_FIELDS');
+            // Merge application metadata only.
             Object.keys(dataObj).forEach(key => {
                 product[key] = dataObj[key];
             });
@@ -90,7 +94,6 @@ class SupplyChainContract extends Contract {
 
     // Add certification to a product
     async addCertification(ctx, id, certType, certId, issuer, timestamp) {
-        console.info('============= Add Certification ===========');
 
         const productAsBytes = await ctx.stub.getState(id);
         if (!productAsBytes || productAsBytes.length === 0) {
@@ -98,6 +101,7 @@ class SupplyChainContract extends Contract {
         }
 
         const product = JSON.parse(productAsBytes.toString());
+        if (product.batchId) throw new Error("USE_COTTON_STATE_MACHINE");
 
         const certification = {
             type: certType,
@@ -115,13 +119,24 @@ class SupplyChainContract extends Contract {
 
     // Register a cotton batch
     async registerCottonBatch(ctx, id, farmId, quantity, organic, fairTrade, harvestDate, location) {
-        console.info('============= Register Cotton Batch ===========');
+        const quantityKg = Number(quantity);
+        if (!id || !farmId || !Number.isFinite(quantityKg) || quantityKg <= 0) throw new Error('INVALID_COTTON_BATCH');
+        const existing = await ctx.stub.getState(id);
+        if (existing && existing.length) throw new Error('BATCH_ALREADY_EXISTS');
 
         const batch = {
             id,
+            batchId: id,
+            origin: location,
+            producer: farmId,
+            quantityKg,
+            certificationHash: null,
+            createdAt: transactionTimestamp(ctx),
+            verifiedAt: null,
+            rwaStatus: 'PRODUCED',
             type: 'cotton',
             farmId,
-            quantity: parseFloat(quantity),
+            quantity: quantityKg,
             organic: organic === 'true',
             fairTrade: fairTrade === 'true',
             harvestDate,
@@ -147,6 +162,25 @@ class SupplyChainContract extends Contract {
         return JSON.stringify(batch);
     }
 
+    async verifyCottonBatch(ctx, id, certificationHash) {
+        if (!ctx.clientIdentity.assertAttributeValue('sfc.role', 'certifier')) throw new Error('CERTIFIER_REQUIRED');
+        if (!/^0x[0-9a-fA-F]{64}$/.test(certificationHash) || /^0x0{64}$/.test(certificationHash)) {
+            throw new Error('INVALID_CERTIFICATION_HASH');
+        }
+        const bytes = await ctx.stub.getState(id);
+        if (!bytes || !bytes.length) throw new Error('BATCH_NOT_FOUND');
+        const batch = JSON.parse(bytes.toString());
+        if (batch.status !== 'STORED' || batch.rwaStatus !== 'PRODUCED') throw new Error('BATCH_NOT_VERIFIABLE');
+        batch.certificationHash = certificationHash;
+        batch.verifiedAt = transactionTimestamp(ctx);
+        batch.verifiedBy = ctx.clientIdentity.getID();
+        batch.fabricVerificationTxId = ctx.stub.getTxID();
+        batch.rwaStatus = 'VERIFIED';
+        await ctx.stub.putState(id, Buffer.from(JSON.stringify(batch)));
+        ctx.stub.setEvent('CottonBatchVerified', Buffer.from(JSON.stringify(batch)));
+        return JSON.stringify(batch);
+    }
+
     async storeCottonBatch(ctx, id, warehouseId) {
         const batchAsBytes = await ctx.stub.getState(id);
         if (!batchAsBytes || batchAsBytes.length === 0) throw new Error(`Batch ${id} does not exist`);
@@ -167,7 +201,6 @@ class SupplyChainContract extends Contract {
 
     // Request tokenization for a cotton batch
     async requestTokenization(ctx, requestId, batchId, quantity, warehouseId) {
-        console.info('============= Request Tokenization ===========');
 
         const batchAsBytes = await ctx.stub.getState(batchId);
         if (!batchAsBytes || batchAsBytes.length === 0) {
@@ -180,14 +213,19 @@ class SupplyChainContract extends Contract {
         if (batch.status !== 'STORED') {
             throw new Error(`Batch ${batchId} must be in STORED status to be tokenized`);
         }
+        if (batch.rwaStatus !== 'VERIFIED' || !batch.certificationHash) throw new Error('VERIFIED_BACKING_REQUIRED');
+        if (batch.currentCustody !== warehouseId) throw new Error('WAREHOUSE_MISMATCH');
+        if (batch.pendingTokenizationId) throw new Error('TOKENIZATION_ALREADY_PENDING');
+        const existingRequest = await ctx.stub.getState(requestId);
+        if (existingRequest && existingRequest.length) throw new Error('REQUEST_ALREADY_EXISTS');
 
         if (batch.tokenizationId) {
             throw new Error(`Batch ${batchId} has already been tokenized`);
         }
 
         // Validate the quantity
-        const requestedQuantity = parseFloat(quantity);
-        if (requestedQuantity <= 0 || requestedQuantity > batch.quantity) {
+        const requestedQuantity = Number(quantity);
+        if (!Number.isFinite(requestedQuantity) || requestedQuantity <= 0 || requestedQuantity > batch.quantity) {
             throw new Error(`Invalid tokenization quantity. Must be between 0 and ${batch.quantity}`);
         }
 
@@ -207,6 +245,7 @@ class SupplyChainContract extends Contract {
 
         // Store the tokenization request
         await ctx.stub.putState(requestId, Buffer.from(JSON.stringify(tokenizationRequest)));
+        batch.pendingTokenizationId = requestId;
 
         // Update batch history
         batch.history.push({
@@ -223,7 +262,7 @@ class SupplyChainContract extends Contract {
 
     // Approve a tokenization request
     async approveTokenizationRequest(ctx, requestId) {
-        console.info('============= Approve Tokenization Request ===========');
+        if (!ctx.clientIdentity.assertAttributeValue('sfc.role', 'certifier')) throw new Error('CERTIFIER_REQUIRED');
 
         const requestAsBytes = await ctx.stub.getState(requestId);
         if (!requestAsBytes || requestAsBytes.length === 0) {
@@ -252,6 +291,7 @@ class SupplyChainContract extends Contract {
         }
 
         const batch = JSON.parse(batchAsBytes.toString());
+        if (batch.rwaStatus !== 'VERIFIED' || batch.pendingTokenizationId !== requestId) throw new Error('VERIFIED_BACKING_REQUIRED');
 
         // Update batch history
         batch.history.push({
@@ -273,7 +313,8 @@ class SupplyChainContract extends Contract {
 
     // Complete tokenization with Ethereum transaction
     async completeTokenization(ctx, requestId, ethereumTransactionId) {
-        console.info('============= Complete Tokenization ===========');
+        if (!ctx.clientIdentity.assertAttributeValue('sfc.role', 'bridge')) throw new Error('BRIDGE_REQUIRED');
+        if (!/^0x[0-9a-fA-F]{64}$/.test(ethereumTransactionId)) throw new Error('INVALID_ETHEREUM_RECEIPT');
 
         const requestAsBytes = await ctx.stub.getState(requestId);
         if (!requestAsBytes || requestAsBytes.length === 0) {
@@ -281,6 +322,10 @@ class SupplyChainContract extends Contract {
         }
 
         const request = JSON.parse(requestAsBytes.toString());
+        if (request.status === 'COMPLETED' && request.ethereumTransactionId === ethereumTransactionId) {
+            const batch = JSON.parse((await ctx.stub.getState(request.batchId)).toString());
+            return JSON.stringify({ request, batch });
+        }
 
         // Validate request is in APPROVED status
         if (request.status !== 'APPROVED') {
@@ -305,6 +350,8 @@ class SupplyChainContract extends Contract {
         // Update batch with tokenization info
         batch.tokenizationId = ethereumTransactionId;
         batch.status = 'TOKENIZED';
+        batch.rwaStatus = 'TOKENIZED';
+        batch.tokenizedKg = request.quantity;
 
         // Update batch history
         batch.history.push({
@@ -340,7 +387,6 @@ class SupplyChainContract extends Contract {
 
     // Mint NFT for a product
     async mintNFT(ctx, productId, nftTokenId) {
-        console.info('============= Mint NFT ===========');
 
         const productAsBytes = await ctx.stub.getState(productId);
         if (!productAsBytes || productAsBytes.length === 0) {
@@ -377,7 +423,6 @@ class SupplyChainContract extends Contract {
 
     // Create a finished product from cotton batches
     async createFinishedProduct(ctx, productId, productType, manufacturer, batchIds, productDate) {
-        console.info('============= Create Finished Product ===========');
 
         // Validate input
         if (!productId || !productType || !manufacturer || !batchIds || !productDate) {

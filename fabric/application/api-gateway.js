@@ -212,6 +212,23 @@ apiRouter.post('/batches/:id/store', authenticateJwt, requireRole('admin'), asyn
     }
 });
 
+apiRouter.post('/batches/:id/verify', authenticateJwt, requireRole('admin'), async (req, res) => {
+    if (!/^0x[0-9a-fA-F]{64}$/.test(req.body.certificationHash || '')) {
+        return res.status(400).json({ error: 'certificationHash must be bytes32' });
+    }
+    let connection;
+    try {
+        connection = await connectToFabric({ identity: process.env.FABRIC_CERTIFIER_IDENTITY || 'certifier' });
+        const batch = JSON.parse(Buffer.from(await connection.contract.submitTransaction(
+            'verifyCottonBatch', req.params.id, req.body.certificationHash)).toString());
+        res.status(200).json({ batch });
+    } catch (error) {
+        res.status(503).json({ error: error.message });
+    } finally {
+        connection?.gateway.disconnect();
+    }
+});
+
 // Product operations shared by the browser client.
 const productOperation = (action, status = 200) => async (req, res) => {
     let connection;
@@ -394,7 +411,7 @@ apiRouter.post('/tokenize', authenticateJwt, requireRole('admin'), async (req, r
 apiRouter.post('/tokenize/:requestId/approve', authenticateJwt, requireRole('admin'), async (req, res) => {
     let connection;
     try {
-        connection = await connectToFabric();
+        connection = await connectToFabric({ identity: process.env.FABRIC_CERTIFIER_IDENTITY || 'certifier' });
         const request = JSON.parse(Buffer.from(await connection.contract.submitTransaction(
             'approveTokenizationRequest', req.params.requestId)).toString());
         res.status(200).json({ request });

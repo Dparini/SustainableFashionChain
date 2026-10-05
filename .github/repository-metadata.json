@@ -1,0 +1,5 @@
+{
+  "repository": "Dparini/SustainableFashionChain",
+  "description": "Verifiable RWA infrastructure connecting Hyperledger Fabric supply-chain data with Ethereum and autonomous onchain agents.",
+  "topics": ["ethereum", "hyperledger-fabric", "blockchain", "rwa", "defi", "smart-contracts", "chainlink", "cross-chain", "ai-agents", "web3"]
+}

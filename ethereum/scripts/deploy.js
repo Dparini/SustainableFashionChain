@@ -43,6 +43,7 @@ async function main() {
   saveDeployment({
     network: connection.networkName,
     cotToken: await cotToken.getAddress(),
+    cottonReserveRegistry: await cotToken.reserveRegistry(),
     productNFT: await productNFT.getAddress(),
     circularRewards: await circularRewards.getAddress(),
     deployer: deployer.address,
@@ -68,6 +69,7 @@ function saveDeployment(deploymentInfo) {
     path.join(__dirname, '../contract-addresses.json'),
     JSON.stringify({
       CotToken: deploymentInfo.cotToken,
+      CottonReserveRegistry: deploymentInfo.cottonReserveRegistry,
       ProductNFT: deploymentInfo.productNFT,
       CircularRewards: deploymentInfo.circularRewards,
       deployer: deploymentInfo.deployer

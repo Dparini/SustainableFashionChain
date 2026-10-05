@@ -1,0 +1,111 @@
+name: Verify RWA boundaries
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  boundaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: |
+            ethereum/package-lock.json
+            bridging/package-lock.json
+            fabric/application/package-lock.json
+            fabric/chaincode/supplychain/package-lock.json
+            frontend/package-lock.json
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.9.18'
+          enable-cache: true
+      - run: uv sync --project agent --extra test --frozen --python 3.12
+      - name: Install committed JS dependencies
+        run: |
+          npm ci --prefix ethereum
+          npm ci --prefix bridging
+          npm ci --prefix fabric/application
+          npm ci --prefix fabric/chaincode/supplychain
+          npm ci --prefix frontend
+      - name: Solidity backing, replay and market invariants
+        run: npm test --prefix ethereum
+      - name: Fabric verification and identity boundaries
+        run: npm test --prefix fabric/chaincode/supplychain
+      - name: Bridge, oracle and compatibility boundaries
+        run: node --test scripts/dependency-compat.test.cjs scripts/fabric-gateway.test.cjs scripts/verified-boundaries.test.cjs
+      - name: Backend tests and lint
+        run: |
+          npm test --prefix fabric/application -- --runInBand
+          npm run lint --prefix fabric/application
+      - name: Agent, policy and executor boundaries
+        run: agent/.venv/bin/python -m pytest agent/tests -q
+      - name: Fifty recorded adversarial evaluations
+        run: agent/.venv/bin/python -m agent benchmark
+      - name: Frontend validation
+        run: |
+          npm test --prefix frontend
+          npm run build --prefix frontend
+      - name: Local-chain E2E (real chaincode fixture, not live Fabric consensus)
+        run: node scripts/local-e2e.cjs
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/audit-dependencies.cjs
+  compose-demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and start the documented demo
+        run: docker compose up --build -d
+      - name: Wait for agent and verify successful simulation
+        run: |
+          agent_container="$(docker compose ps -a -q agent)"
+          test -n "$agent_container"
+          exit_code="$(docker wait "$agent_container")"
+          test "$exit_code" = "0"
+          docker compose logs agent | tee /tmp/sfc-demo.log
+          grep 'ACTION APPROVED' /tmp/sfc-demo.log
+          grep 'eth_call' /tmp/sfc-demo.log
+      - name: Demo diagnostics
+        if: failure()
+        run: docker compose logs bootstrap agent
+      - name: Stop this workflow's demo
+        if: always()
+        run: docker compose down --volumes
+  live-fabric:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version: '0.9.18'
+          enable-cache: true
+      - run: uv sync --project agent --extra test --frozen --python 3.12
+      - name: Install live integration dependencies
+        run: |
+          npm ci --prefix ethereum
+          npm ci --prefix bridging
+          npm ci --prefix fabric/application
+          npm ci --prefix fabric/chaincode/supplychain
+      - name: Real Fabric commit/event to Ethereum and guarded agent execution
+        run: node scripts/fabric-live-e2e.cjs

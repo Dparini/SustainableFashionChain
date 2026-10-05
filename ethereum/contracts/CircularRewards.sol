@@ -130,8 +130,8 @@ contract CircularRewards is Context, AccessControl {
             timestamp: block.timestamp
         }));
 
-        // Mint tokens to the user
-        cotToken.mintTo(user, rewardAmount);
+        // Rewards redistribute funded claims; they never create unbacked cotton.
+        require(cotToken.transfer(user, rewardAmount), "CircularRewards: reward transfer failed");
 
         emit RewardIssued(user, tokenId, actionType, rewardAmount);
     }

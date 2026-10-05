@@ -29,8 +29,9 @@ for (const [path, title] of Object.entries({
 })) {
   test(`route ${path} renders`, async () => {
     open(path);
-    expect(await screen.findByRole('heading', { name: title, level: 1 })).toBeTruthy();
-  });
+    // Cold lazy imports can exceed the DOM library's 1s default on busy CI workers.
+    expect(await screen.findByRole('heading', { name: title, level: 1 }, { timeout: 5000 })).toBeTruthy();
+  }, 10000);
 }
 test('verification accepts scanned IDs from the URL', async () => {
   open('/verify?id=COTTON-1');

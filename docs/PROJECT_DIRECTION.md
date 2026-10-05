@@ -1,0 +1,105 @@
+# Project direction and completion record
+
+Accepted on 2026-10-05. This file is persistent project memory. Continue from the
+completion record when resuming work; do not restart or replace the objective.
+
+**SustainableFashionChain — Verifiable RWA infrastructure from physical supply
+chains to autonomous onchain markets.**
+
+Retain Hyperledger Fabric, Ethereum, the bridge, CotToken and ProductNFT.
+Sustainability is the use case; verified RWA backing, interoperability and
+bounded autonomous execution are the engineering thesis. Depth over feature count.
+
+## Non-negotiable boundaries
+
+- 1 COT is a claim representing 1 kg of verified cotton, with 18 decimal places.
+- Every mint must consume attested batch capacity. No administrative or reward
+  mint path may bypass backing. Physical truth remains an attestor assumption.
+- Fabric event identity is stable across retries; Ethereum rejects replay.
+- Models receive read-only data and return validated HOLD/BUY_COT/SELL_COT intents.
+  They never receive keys, transaction calldata, arbitrary destinations or signing tools.
+- Agent proposes; policy engine authorizes; simulator verifies effects; executor executes.
+- Policy checks are deterministic and fail closed on missing, stale or invalid data.
+- Simulation is the default. Execution requires explicit signer configuration and
+  a local demo chain. No real-money trading or implied mainnet readiness.
+- Audit records contain canonical Keccak state hashes, risk, proposal, policy,
+  simulation and execution results. Benchmarks report measured results only.
+- Do not add new tokens, governance, a new blockchain, broad DeFi integrations,
+  a large dashboard or speculative ZK features. Exactly two agents suffice.
+- Git commits use the user's configured identity with no assistant co-author trailers.
+  Preserve unrelated local changes, including the fabric-samples binary archive.
+
+## Ordered implementation checklist
+
+1. [x] README thesis, prepared GitHub metadata, cleanup and reproducible quick start.
+   GitHub description/topics application is explicitly assigned to the user.
+2. [x] ARCHITECTURE.md: problem, goals, overview, Fabric, Ethereum, bridge, oracle,
+   agents, policy, threat model, assumptions and trade-offs.
+3. [x] THREAT_MODEL.md: compromised LLM, injection, hallucination, stale/manipulated
+   oracle, replay, double mint, desynchronization, executor/key compromise,
+   liquidity manipulation and backing mismatch; mitigations and residual risks.
+4. [x] CottonReserveRegistry.sol with batch, verified/tokenized amounts, timestamps and active flag.
+5. [x] Backing invariant over every issuance route and conservative reserve lifecycle.
+6. [x] Stable bridge event identifiers, onchain replay rejection and recovery tests.
+7. [x] Oracle freshness <= 3600 seconds, valid price/round checks and missing-data rejection.
+8. [x] Python agent package, installable sfc CLI and simulation default.
+9. [x] Structured Fabric/Ethereum/oracle/market state aggregation with provenance.
+10. [x] Read-only RiskAgent.
+11. [x] AllocatorAgent producing proposals only.
+12. [x] Strict Pydantic schemas, finite values, unknown-action rejection.
+13. [x] Deterministic YAML policies: exposure 35%, single trade 10%, slippage 50 bps,
+    liquidity USD 10,000, oracle age 3600s, backing >= 100%, confidence >= 65%.
+14. [x] Transaction construction and simulation; check revert, deltas, gas,
+    slippage, post-trade exposure and reserve invariant.
+15. [x] Isolated executor with revalidation and explicit configuration.
+16. [x] Audit JSONL with canonical state hash and timestamps.
+17. [x] Ten eval scenarios: normal, stale oracle, supply shock, low liquidity,
+    invalid reserves, replay, extreme price, hallucination, oversized trade, missing data.
+18. [x] Adversarial injection tests and safety invariant tests.
+19. [x] Benchmark CLI measuring valid/safe/correct outputs and actual model cost.
+20. [x] GitHub Actions for contract, Fabric, bridge, agent, policy, invariant and E2E checks.
+21. [x] Architecture graphic matching implemented boundaries.
+22. [x] Reproducible terminal GIF showing approved and rejected decisions.
+23. [x] <=90 second demo: architecture, verified batch, mint, proposal, simulation,
+    deliberately dangerous trade rejected.
+24. [x] Final README polish, truthful badges and clean-clone verification.
+
+## Completion definition
+
+A new checkout can run a clearly labelled simulation demo without credentials,
+and a local-chain integration demo proves backing, replay protection and guarded
+execution. Critical boundary tests and evals pass. Full Fabric deployment is
+separately documented and tested when available, never misrepresented by an in-memory
+fixture. Documentation, benchmark output and demo assets correspond to tested code.
+
+## Work log
+
+- Baseline: npm audit reports zero vulnerabilities in six maintained npm projects;
+  80 existing tests pass, frontend builds and backend lint passes. GitHub reported
+  two low alerts on push; their actual advisory state needs independent verification.
+- README thesis, architecture, threat model and RWA semantics drafted. Backing registry,
+  stable event/transaction replay guards, Gateway acknowledgment reconciliation and oracle
+  validation implemented. Rewards now transfer funded claims.
+- Python package, strict schemas, two baseline agents, optional read-only Ollama adapter,
+  deterministic YAML policies, exact local transaction construction, eth_call simulation,
+  isolated local executor and pre-sign/broadcast/confirmation audit snapshots implemented.
+- 49 Solidity, 35 Python, 8 Fabric and 18 bridge/Gateway/compatibility tests pass.
+  Fifty recorded evals: 90% action-schema validity, 100% safety, 100% correct decisions.
+  Invalid outputs intentionally included; this is a finite corpus, not a universal proof.
+- Local-chain E2E and Docker Compose simulation pass. Onchain local-market inclusion guards
+  added for exposure, trade size, freshness, deadline, backing and slippage.
+- Architecture SVG, terminal GIF and 80-second recorded demo generated from real E2E output.
+  Final capture regenerated; video duration verified at 79.95 seconds.
+- User explicitly chose to apply GitHub description/topics manually. Exact metadata saved
+  in .github/repository-metadata.json; no further GitHub authentication is required from agent.
+- Live Fabric E2E passed twice, including the pinned Node runtime digest. Real CA
+  identities, committed verification/approval and emitted Fabric event reached backed
+  Ethereum issuance and guarded agent execution. Only generated test resources removed.
+- Clean Git-tree export built from committed lockfiles without node_modules, compiler
+  artifacts, local identities or deployment addresses. Compose bootstrap and agent exited
+  zero, with approved exact eth_call simulation. Installable wheel benchmark also passed
+  outside the repository. Backend 13 tests/lint and frontend 18 tests/build pass.
+- Removed generated test identities/addresses from version control while retaining local
+  files. Removed the unused Go chaincode alternative: the tested implementation is JavaScript.
+  Preserve the user's original fabric-samples binary archive and unrelated containers.
+- GitHub Actions publication and remote verification follow the final commit.

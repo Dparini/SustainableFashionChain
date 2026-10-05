@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sfc-agent"
+version = "0.1.0"
+description = "Bounded agents for verifiable cotton RWA infrastructure"
+requires-python = ">=3.11"
+dependencies = ["pydantic>=2.12,<3", "PyYAML>=6.0.2,<7", "eth-hash[pycryptodome]>=0.7,<1", "web3>=7.14,<8"]
+
+[project.optional-dependencies]
+demo = ["Pillow>=11.2,<13"]
+test = ["pytest>=8.3,<10", "hypothesis>=6.130,<7"]
+
+[project.scripts]
+sfc = "agent.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/agent"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"evals/scenarios" = "agent/eval_scenarios"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

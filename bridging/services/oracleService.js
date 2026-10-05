@@ -1,4 +1,5 @@
 const { ethers } = require('ethers');
+const { validateRound } = require('../oracle-validation');
 const ChainlinkAggregatorV3Interface = { abi: [
     'function decimals() view returns (uint8)',
     'function latestRoundData() view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)'
@@ -25,11 +26,12 @@ class OracleService {
             );
 
             const roundData = await priceFeed.latestRoundData();
+            validateRound(roundData);
             const decimals = await priceFeed.decimals();
             return Number(ethers.formatUnits(roundData.answer, decimals));
         } catch (error) {
             console.error('Oracle price retrieval error:', error);
-            throw new Error('Failed to retrieve commodity price');
+            throw error;
         }
     }
 
@@ -41,12 +43,7 @@ class OracleService {
     async getWeatherData(location) {
         // Integration with weather oracle service
         // Placeholder for future implementation
-        return {
-            temperature: 25.5,
-            humidity: 65,
-            precipitation: 0.2,
-            windSpeed: 12
-        };
+        throw new Error('WEATHER_ORACLE_NOT_CONFIGURED');
     }
 
     /**
@@ -56,12 +53,7 @@ class OracleService {
      */
     async verifyCarbonCredits(projectId) {
         // Placeholder for carbon credit verification via oracle
-        return {
-            verified: true,
-            credits: 1000,
-            projectType: 'Reforestation',
-            validUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-        };
+        throw new Error('CARBON_ORACLE_NOT_CONFIGURED');
     }
 }
 

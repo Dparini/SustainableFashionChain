@@ -1,195 +1,164 @@
 # SustainableFashionChain
 
-A hybrid blockchain platform for sustainable commodity trading and circular fashion, combining Hyperledger Fabric for supply chain traceability with Ethereum for tokenization.
+Verifiable RWA infrastructure from physical supply chains to autonomous onchain markets.
 
-## Project Overview
+SustainableFashionChain connects permissioned supply-chain data with Ethereum,
+turning verified physical commodities into programmable onchain assets.
 
-This project creates an end-to-end solution for tracking cotton and silk from farm to finished product, with tokenization enabling transparent trading and incentivizing circular economy practices.
+**Hyperledger Fabric → Cross-chain Bridge → Ethereum → Autonomous Agents**
 
-### Key Components
+![Verification workflow](https://github.com/Dparini/SustainableFashionChain/actions/workflows/verify.yml/badge.svg)
 
-1. **Hyperledger Fabric Network**: Private consortium blockchain for tracking supply chain data
-2. **Ethereum Contracts**: Public blockchain implementation for tokenization
-   - CotToken (ERC-20): Represents 1kg of certified cotton
-   - ProductNFT (ERC-721): Represents finished garments with full provenance
-3. **Blockchain Bridge**: Connects the Fabric and Ethereum networks
-4. **Oracle Integration**: Uses Chainlink for price data and weather information
+![Architecture](docs/assets/architecture.svg)
 
-## Architecture
+[▶ Demo](#demo) · [⚡ Quick Start](#quick-start) · [🏗 Architecture](ARCHITECTURE.md) ·
+[🤖 Autonomous Agent](agent/README.md) · [🔐 Security Model](THREAT_MODEL.md) ·
+[🧪 E2E Tests](#verification)
 
-The platform uses a hybrid architecture:
-- **Hyperledger Fabric**: Handles sensitive supply chain data, certifications, and custody transfers
-- **Ethereum**: Manages tokenization, public verification, and integration with DeFi ecosystem
+**Agent = proposes · Policy Engine = authorizes · Simulator = verifies effects · Executor = executes.**
 
-## Project Structure
+## Demo
 
-```
-SustainableFashionChain/
-├─ README.md                 # Project overview and documentation
-├─ .gitignore                # Git ignore file
-├─ fabric/                   # Hyperledger Fabric implementation
-│   ├─ chaincode/            # Smart contracts for Fabric
-│   │   └─ supplychain/      # Main supply chain tracking chaincode
-│   ├─ network/              # Network configuration
-│   └─ application/          # Client application
-├─ ethereum/                 # Ethereum implementation
-│   ├─ contracts/            # Solidity smart contracts
-│   ├─ scripts/              # Deployment and interaction scripts
-│   └─ test/                 # Contract tests
-├─ bridging/                 # Connection between Fabric and Ethereum
-└─ docs/                     # Documentation and diagrams
-```
+[Watch the 80-second demonstration](docs/assets/demo.mp4): verify a cotton batch,
+relay backed COT issuance, propose a trade, authorize and simulate it, then reject
+an oversized proposal. [Reproduce the recording](docs/DEMO.md).
 
-## Getting Started
+![Approved simulation and rejected trade](docs/assets/terminal-demo.gif)
 
-### Prerequisites
+The video uses real Solidity contracts on a local Ethereum chain and the actual
+Fabric chaincode with an explicitly labelled in-memory fixture. A separate live
+integration runner exercises Fabric consensus, CA identities and committed events.
+No real funds are used.
 
-- Docker and Docker Compose
-- Node.js (v22.14+; Node 22 LTS recommended)
-- Go (v1.16+)
-- Hardhat
-- Hyperledger Fabric binaries
+## Quick Start
 
-### Setup Instructions
-
-1. **Clone the repository**
-   ```
-   git clone https://github.com/your-username/SustainableFashionChain.git
-   cd SustainableFashionChain
-   ```
-
-2. **Set up the Fabric network**
-   ```
-   cd fabric/network
-   ./network.sh up
-   ```
-
-3. **Deploy the chaincode**
-   ```
-   ./network.sh deployCC -ccn supplychain -ccp ../chaincode/supplychain
-   ```
-
-4. **Deploy Ethereum contracts**
-   ```
-   cd ../../ethereum
-   npx hardhat run scripts/deploy.js --network <network>
-   ```
-
-5. **Start the bridge service**
-   ```
-   cd ../bridging
-   npm install
-   npm start
-   ```
-
-## Features
-
-- Track cotton/silk from farm through production to finished products
-- Tokenize certified commodities as ERC-20 tokens
-- Create unique NFTs for finished garments with full provenance data
-- Incentivize recycling and circular economy practices
-- Integration with price oracles for market data
-
-## Dependency maintenance
-
-Use Node 22.14 or newer and `npm ci` in each npm project to install the
-committed lockfile. Run `node scripts/audit-dependencies.cjs` from the repository
-root to audit all six projects, including development dependencies. The command
-returns a failure if any vulnerability remains; no advisories are suppressed.
-
-The frontend uses Vite and Vitest. `npm start` still uses port 3000,
-`npm run build` still writes `frontend/build`, and `REACT_APP_API_URL` remains
-supported. Bridge and browser wallet integrations use Ethers 6. Fabric clients
-use Fabric Gateway, and the Ethereum project uses Hardhat 3.
-
-Dependency overrides are declared in the individual package manifests. Revisit
-them when updating their parent packages.
-
-Compatibility checks:
+With Docker and Docker Compose:
 
 ```sh
-node --test scripts/dependency-compat.test.cjs
-cd ethereum
-npx hardhat test test/CotToken.test.js test/ProductNFT.test.js test/CircularRewards.test.js
-cd ../fabric/chaincode/supplychain
-npm test
-cd ../../../frontend
-npm test
+git clone https://github.com/Dparini/SustainableFashionChain.git
+cd SustainableFashionChain
+docker compose up --build
 ```
 
-The separate Ethereum end-to-end suite needs running Fabric/API and Ethereum
-services and is not covered by the offline checks above.
-
-The frontend entry point is split into separate pages, and the development server
-proxies `/api` to `http://127.0.0.1:3001`. Override `API_PROXY_TARGET` for a different
-backend or `REACT_APP_API_URL` for a different public API URL. Start the backend
-with `npm start` in `fabric/application`, then the frontend with `npm start` in
-`frontend`. Use the Sign in page with an API access key before accessing protected
-ledger endpoints. The public verification endpoint does not require a key.
-
-The backend can serve its health endpoint and login pages without Fabric.
-Ledger operations still require the connection profile, wallet identity and a
-running Fabric network. The bridge is opt-in in the backend (`START_BRIDGE=true`)
-or can be run separately with `npm start` in `bridging`. Set `BRIDGE_CONFIG` to a
-JSON configuration file containing `ethereumRpcUrl`, an Ethereum signing key or
-mnemonic, `sidechainBridgeAddress`, `cotTokenAddress`, `productNFTAddress`, `abiDir`,
-`fabricConnectionProfilePath` and `fabricWalletPath`. Contract addresses and ABI
-files must match the deployed contracts. Do not commit private keys.
-
-Optional queue, cache and proof services need RabbitMQ, Redis and the compiled
-circuits/proving keys respectively. Their compatibility entry points in
-`services/` delegate to the canonical implementations. Importing queue/cache
-services no longer requires a connection to have been initialized already, and
-importing the mail service no longer opens an external connection.
-
-Additional verification commands:
+Bootstrap verifies 42,000 kg, registers backing with a separate attestor, relays
+35,000 COT and funds a local exercise market. The agent reads actual onchain
+state, proposes BUY 500 COT, checks policies and runs `eth_call`. Simulation is
+the default; bootstrap transactions are confined to the local test chain.
+The Ethereum service stays running after the agent exits successfully.
 
 ```sh
-npm test --prefix frontend
-npm run build --prefix frontend
+docker compose run --rm agent status --config /demo/local.json
+docker compose run --rm agent run --config /demo/local.json
+docker compose down --volumes
+```
+
+Removing demo volumes resets this demo's generated state. This Compose stack
+uses a Fabric fixture; it does not start a Fabric consensus network.
+
+For the credential-free offline agent, with Python 3.11+ and uv:
+
+```sh
+uv sync --project agent --extra test --frozen
+agent/.venv/bin/sfc status
+agent/.venv/bin/sfc demo
+agent/.venv/bin/python -m agent run --mode simulation
+agent/.venv/bin/sfc benchmark
+```
+
+Offline simulation is analytical and reports no fabricated gas estimate.
+[Agent configuration and explicit local execution](agent/README.md).
+
+## Verified assets and bridge
+
+**1 COT = a claim representing 1 kg of verified cotton.** Each batch binds
+physical custody, a Fabric record, certification hash, verification transaction,
+bridge event and Ethereum reserve. ProductNFT retains garment provenance.
+
+`CottonReserveRegistry` limits every COT issuance route to attested batch capacity:
+`COT.totalSupply <= verifiedCottonKg` (both in 18-decimal units). Rewards transfer
+prefunded COT. Burning does not automatically release physical reserve capacity.
+
+The event identifier is `keccak256(abi.encode(fabricTxId, batchIdHash, amount,
+"MINT_COT"))`. Ethereum records both processed events and Fabric transaction IDs.
+Replaying the same event reverts with `EVENT_ALREADY_PROCESSED`; changing its
+amount cannot bypass the transaction guard. A retry after a lost Fabric
+acknowledgment recovers the mined receipt without minting again.
+
+Backing attestations are trusted assertions about custody. They do not establish
+legal title or prove the physical existence of cotton. See [RWA semantics](docs/RWA_MODEL.md)
+and [trust assumptions](ARCHITECTURE.md).
+
+## Autonomous Agent
+
+RiskAgent is read-only. AllocatorAgent returns a strict HOLD, BUY_COT or SELL_COT
+proposal. The default agents are deterministic; an optional local Ollama adapter
+produces schema-validated proposals through the same boundaries.
+
+The model never has access to signing keys and cannot construct arbitrary
+transactions. Unknown actions, extra fields and invalid numbers are rejected.
+The independent policy engine enforces:
+
+- Exposure ≤ 35%; single trade ≤ 10% of portfolio value.
+- Slippage ≤ 50 bps; venue liquidity ≥ USD 10,000.
+- Oracle age ≤ 3,600 seconds; valid, positive, completed price round.
+- Verified backing ≥ 100%; proposal confidence ≥ 65%.
+- Available balances, supply-risk and oracle/quote consistency.
+
+Simulation checks exact calldata, revert behavior, balance deltas, gas, exposure
+and backing. The executor revalidates a fresh snapshot before signing, records an
+audit trail and verifies confirmation effects. Local market contracts also enforce
+freshness, slippage, deadline, exposure and trade-size limits at inclusion.
+Execution requires explicit configuration and only supports local test chains.
+
+Each decision records the canonical Keccak-256 state hash, risk, proposal, policy,
+simulation and transaction. Revalidated execution snapshots are preserved too.
+
+## Verification
+
+Node 22+, Python 3.11+, uv and Docker are required for the full local checks.
+Install JavaScript dependencies with `npm ci` in `ethereum`, `bridging`,
+`fabric/application`, `fabric/chaincode/supplychain` and `frontend`.
+
+```sh
+npm test --prefix ethereum
+npm test --prefix fabric/chaincode/supplychain
+node --test scripts/dependency-compat.test.cjs scripts/fabric-gateway.test.cjs scripts/verified-boundaries.test.cjs
 npm test --prefix fabric/application -- --runInBand
 npm run lint --prefix fabric/application
-npm test --prefix bridging
+agent/.venv/bin/python -m pytest agent/tests -q
+node scripts/local-e2e.cjs
+node scripts/fabric-live-e2e.cjs
+node scripts/audit-dependencies.cjs
 ```
 
-`npm test` in `ethereum` runs the offline contract suite. The live suite covers
-cotton registration, storage, approval, ERC-20 minting, finished product creation,
-NFT minting and recycling across Fabric, the API, the bridge and Ethereum. Start
-those services and deploy the contracts before running:
+The live runner downloads pinned official Fabric tools, starts an isolated
+two-organization CA network, deploys the chaincode and tests committed events
+through Ethereum and guarded execution. It refuses to reuse existing Fabric
+containers and removes only its own resources. Allow several minutes and keep
+ports 7050–9051, 18546 and 18547 free.
 
-```sh
-API_KEY=admin-api-key \
-CONTRACT_ADDRESSES_FILE=/path/to/deployed-contract-addresses.json \
-ETHEREUM_SIGNER_INDEX=1 \
-TOKEN_RECIPIENT_ADDRESS=<bridge-ethereum-address> \
-npm run test:e2e --prefix ethereum
-```
+Ten recorded adversarial scenarios, repeated five times, include stale/missing
+oracle data, supply shock, invalid reserves, replay, low liquidity, extreme price,
+hallucinated actions and excessive trades. The recorded corpus measures **90%
+valid action outputs, 100% safe outcomes and 100% correct decisions**. Deliberately
+invalid output explains the validity score. These are finite-suite measurements,
+not a universal proof or an unmeasured comparison between models. Local model
+benchmarking is available separately.
 
-`API_TOKEN` can replace `API_KEY`. The API key shown above is the repository's
-local demonstration key. `TOKEN_RECIPIENT_ADDRESS` is needed when the bridge
-mints CotTokens to its own account; use a separate Ethereum signer for the NFT
-owner and recycler. Set `API_URL` and `ETHEREUM_PROVIDER_URL` if the services do
-not use ports 3001 and 8545. A `BRIDGE_CONFIG` file takes precedence over values
-in the bridge's `.env` file.
+[CI](.github/workflows/verify.yml) runs Solidity, Fabric, bridge, backend, frontend,
+agent, policy, security invariants, dependency audits, Compose and both E2E paths.
+The badge reports the actual GitHub workflow state.
 
-Container builds use different contexts:
+## Design and scope
 
-```sh
-docker build -f fabric/application/Dockerfile -t sfc-api .
-docker build -t sfc-web frontend
-```
+[Architecture](ARCHITECTURE.md) explains the permissioned custody/public settlement
+split. [Threat model](THREAT_MODEL.md) documents compromised models, prompt
+injection, oracle manipulation, replay, desynchronization and key compromise.
+Attestor trust and executor-key theft remain outside the policy engine's protection.
+The demo market and oracle are test fixtures, not a production exchange or live
+Chainlink feed. Physical redemption and permissionless cross-chain proofs remain
+future lifecycle work.
 
-Run both containers on the same Docker network with the backend named `api`, or
-set `API_UPSTREAM` on the frontend container to its backend URL (default
-`http://api:3001`). Mount the Fabric connection profile and wallet at the paths
-expected by the backend; they are intentionally excluded from the image. The
-frontend uses the official Nginx image's environment-template support to forward
-`/api/` requests while preserving client-side page routing.
-For the single Nginx proxy on that private network, set `TRUST_PROXY=1` on the
-backend and expose only the frontend port to clients. This allows the API rate
-limiters to use the forwarded client IP. Direct API deployments should leave
-`TRUST_PROXY` unset.
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+[Project direction and completion record](docs/PROJECT_DIRECTION.md) preserve the
+accepted transformation. [Archived prototype documentation](docs/LEGACY_SETUP.md)
+retains the original detailed setup and experiments.

@@ -30,6 +30,9 @@ async function main() {
 
   // For demonstration purposes, register a test batch of cotton
   console.log("Registering test cotton batch...");
+  const registry = await ethers.getContractAt("CottonReserveRegistry", await cotToken.reserveRegistry());
+  await (await registry.attestReserve(ethers.id("TEST-COTTON-001"), ethers.parseEther("100"),
+    ethers.id("local-demo-certificate"), ethers.id("local-demo-verification"))).wait();
   const registerTx = await cotTokenInstance.mintBatch(
   "TEST-COTTON-001",
   ethers.parseEther("100"),

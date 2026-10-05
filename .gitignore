@@ -58,3 +58,16 @@ bin/
 vendor/
 
 fabric-samples/
+# Python and local demonstration state
+.venv/
+__pycache__/
+.pytest_cache/
+.hypothesis/
+*.egg-info/
+.runtime/
+
+# Generated local identities and deployment addresses
+/crypto-config/
+/ethereum/deployments/
+/ethereum/contract-addresses.json
+/bridging/contract-addresses.json

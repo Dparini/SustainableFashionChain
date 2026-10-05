@@ -17,7 +17,7 @@ export default {
   networks: {
     default: { type: 'edr-simulated', chainId: 1337 },
     localhost: {
-      type: 'http', url: 'http://127.0.0.1:8545',
+      type: 'http', url: process.env.ETHEREUM_PROVIDER_URL || 'http://127.0.0.1:8545',
       accounts: { mnemonic: 'test test test test test test test test test test test junk' },
     },
     ...remoteNetworks,

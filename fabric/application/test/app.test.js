@@ -126,8 +126,9 @@ test('approved cotton tokenization emits a bridge event with stored batch data',
       putState: async (key, value) => { state.set(key, value); },
       setEvent,
       getTxTimestamp: () => ({ seconds: 1790531000, nanos: 123000000 }),
+      getTxID: () => 'a'.repeat(64),
     },
-    clientIdentity: { getID: () => 'test-admin' },
+    clientIdentity: { getID: () => 'test-admin', assertAttributeValue: (name, role) => role === 'certifier' },
   };
   const contract = {
     submitTransaction: async (name, ...args) => Buffer.from(await chaincode[name](context, ...args)),
@@ -144,6 +145,10 @@ test('approved cotton tokenization emits a bridge event with stored batch data',
   const stored = await request(app).post(`/api/v1/batches/${batchId}/store`).set(auth)
     .send({ warehouseId: 'WH-1' }).expect(200);
   expect(stored.body.batch).toMatchObject({ status: 'STORED', location: 'WH-1' });
+
+  await request(app).post(`/api/v1/batches/${batchId}/verify`).set(auth)
+    .send({ certificationHash: '0x' + 'b'.repeat(64) }).expect(200);
+  setEvent.mockClear();
 
   const requested = await request(app).post('/api/v1/tokenize').set(auth)
     .send({ batchID: batchId, quantity: 3, warehouseID: 'WH-1' }).expect(201);
@@ -173,7 +178,7 @@ test('finished product requests an NFT and records its Ethereum token ID', async
       getTxTimestamp: () => ({ seconds: 1790531000, nanos: 0 }),
       setEvent,
     },
-    clientIdentity: { getID: () => 'test-admin' },
+    clientIdentity: { getID: () => 'test-admin', assertAttributeValue: (name, role) => role === 'certifier' },
   };
   const contract = {
     submitTransaction: async (name, ...args) => Buffer.from(await chaincode[name](context, ...args)),

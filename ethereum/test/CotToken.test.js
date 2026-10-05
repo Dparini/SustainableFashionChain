@@ -16,6 +16,8 @@ describe("CotToken", function () {
 
     cotToken = await CotToken.deploy(owner.address);
     await cotToken.waitForDeployment();
+    const registry = await ethers.getContractAt("CottonReserveRegistry", await cotToken.reserveRegistry());
+    await registry.attestReserve(ethers.id("TEST-FABRIC-001"), parseEther("100"), ethers.id("certificate"), ethers.id("verification-tx"));
   });
 
   describe("Deployment", function () {
@@ -71,7 +73,7 @@ describe("CotToken", function () {
       ).to.be.revertedWith("CotToken: batch ID already used");
     });
 
-    it("Should allow token holders to redeem cotton", async function () {
+    it("Should allow token holders to burn COT", async function () {
       const amount = 1000000000000000000n;
       const redeemAmount = 1000000000000000000n;
 
@@ -88,7 +90,7 @@ describe("CotToken", function () {
       expect(await cotToken.totalSupply()).to.equal(amount - redeemAmount);
     });
 
-    it("Should not allow redeeming more tokens than owned", async function () {
+    it("Should not allow burning more tokens than owned", async function () {
       const amount = parseEther("1");
       const transferAmount = parseEther("1");
       const redeemAmount = 2000000000000000000n;

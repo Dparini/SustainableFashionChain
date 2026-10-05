@@ -232,6 +232,7 @@ class OptimizedBridge extends EventEmitter {
       // Fabric events using contract listeners
       const tokenizationListener = async (event) => {
         const eventPayload = JSON.parse(event.payload.toString());
+        eventPayload.fabricTxId = event.transactionId;
         await this.handleFabricTokenizationRequest(eventPayload);
       };
 
@@ -462,26 +463,10 @@ class OptimizedBridge extends EventEmitter {
    * @param {Array} merkleProof Merkle proof for the transaction
    */
   async processTokenizationTransaction(transaction, batchId, merkleProof) {
-    try {
-      // Check if we should use state channel for this transaction
-      if (this.shouldUseStateChannel(transaction)) {
-        await this.processTokenizationViaStateChannel(transaction);
-      } else {
-        // Process on sidechain first
-        if (this.sidechainProvider) {
-          await this.processTokenizationOnSidechain(transaction, batchId, merkleProof);
-        } else {
-          // Process directly on mainnet if no sidechain is available
-          await this.processTokenizationOnMainnet(transaction, batchId, merkleProof);
-        }
-      }
-    } catch (error) {
-      logger.error(`Failed to process tokenization transaction: ${error.message}`, {
-        error,
-        transactionId: transaction.id
-      });
-      throw error;
+    if (this.sidechainProvider || this.shouldUseStateChannel(transaction)) {
+      throw new Error('UNVERIFIED_ISSUANCE_PATH_DISABLED');
     }
+    return this.processTokenizationOnMainnet(transaction, batchId, merkleProof);
   }
 
   /**
@@ -523,23 +508,11 @@ class OptimizedBridge extends EventEmitter {
       batchId
     });
 
-    // Mint tokens on Ethereum
-    const tx = await this.cotToken.mintBatch(
-      transaction.batchId,
-      ethers.parseEther(transaction.quantity.toString()),
-      transaction.warehouseId,
-      transaction.recipient || this.wallet.address
-    );
+    const { VerifiedRelay } = require('./verified-relay');
+    return new VerifiedRelay({ token: this.cotToken, fabric: this.fabricContract,
+      confirmations: this.config.requiredConfirmations || 1 }).relay(
+      transaction, transaction.recipient || this.wallet.address);
 
-    const receipt = await tx.wait(this.config.requiredConfirmations);
-
-    // After successful Ethereum processing, update Fabric state
-    await this.fabricContract.submitTransaction(
-      'completeTokenization',
-      transaction.requestId,
-      receipt.hash
-    );
-    return { transactionHash: receipt.hash };
   }
 
   /**
@@ -896,6 +869,7 @@ class OptimizedBridge extends EventEmitter {
     // Queue transaction to Ethereum
     this.queueFabricToEthereumTransaction({
       type: 'tokenization',
+      fabricTxId: payload.fabricTxId,
       requestId: payload.requestId,
       batchId: payload.batchId,
       quantity: payload.quantity,

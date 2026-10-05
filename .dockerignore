@@ -14,3 +14,13 @@
 **/*_sk
 **/*.log
 fabric-samples
+
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.hypothesis
+.runtime
+**/artifacts
+**/cache
+crypto-config
+docs/assets

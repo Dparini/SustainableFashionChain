@@ -50,6 +50,9 @@ describe("CircularRewards", function () {
       await cotToken.getAddress()
     );
     await circularRewards.waitForDeployment();
+    const registry = await ethers.getContractAt("CottonReserveRegistry", await cotToken.reserveRegistry());
+    await registry.attestReserve(ethers.id("REWARD-FUND"), parseEther("500"), ethers.id("certificate"), ethers.id("verification-tx"));
+    await cotToken.mintBatch("REWARD-FUND", parseEther("500"), "WH-REWARDS", await circularRewards.getAddress());
 
     // Add roles for rewards system
     await circularRewards.addVerifier(verifier.address);

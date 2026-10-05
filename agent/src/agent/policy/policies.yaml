@@ -1,0 +1,15 @@
+portfolio:
+  max_cot_exposure: "0.35"
+  max_single_trade: "0.10"
+market:
+  max_slippage_bps: 50
+  min_liquidity_usd: "10000"
+  max_oracle_deviation: "0.10"
+oracle:
+  max_age_seconds: 3600
+rwa:
+  require_verified_backing: true
+  min_reserve_ratio: "1.0"
+agent:
+  min_confidence: "0.65"
+  max_supply_risk: "0.80"

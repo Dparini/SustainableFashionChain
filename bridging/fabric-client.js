@@ -72,6 +72,12 @@ async function connectToFabric(options = {}) {
     const contract = {
       evaluateTransaction: async (...args) => Buffer.from(await rawContract.evaluateTransaction(...args)),
       submitTransaction: async (...args) => Buffer.from(await rawContract.submitTransaction(...args)),
+      submitWithReceipt: async (name, ...args) => {
+        const transaction = await rawContract.submitAsync(name, { arguments: args });
+        const status = await transaction.getStatus();
+        if (!status.successful) throw new Error(`FABRIC_COMMIT_FAILED:${status.code}`);
+        return { result: Buffer.from(transaction.getResult()), transactionId: transaction.getTransactionId() };
+      },
     };
     let closed = false;
     const disconnect = () => { if (!closed) { closed = true; gateway.close(); client.close(); } };

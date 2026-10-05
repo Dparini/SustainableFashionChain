@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="860" viewBox="0 0 1200 860" role="img" aria-labelledby="title desc">
+<title id="title">SustainableFashionChain architecture</title>
+<desc id="desc">Verified Fabric custody and independent reserve attestations authorize Ethereum issuance. Risk and allocation agents propose actions through deterministic policy, simulation and an isolated executor.</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8" fill="#47dfb0"/></marker><style>text{font-family:system-ui,sans-serif;fill:#e6edf3} .box{fill:#142238;stroke:#395573;stroke-width:2} .edge{fill:none;stroke:#47dfb0;stroke-width:2;marker-end:url(#arrow)} .label{font-size:15px;fill:#96a6bb} .name{font-size:21px;font-weight:600} .small{font-size:16px}</style></defs>
+<rect width="1200" height="860" rx="22" fill="#0a1220"/>
+<text x="55" y="62" font-size="32" font-weight="700">SustainableFashionChain</text>
+<text x="55" y="97" class="label">Verifiable RWA infrastructure from physical supply chains to autonomous onchain markets</text>
+<rect x="65" y="147" width="230" height="92" rx="14" class="box"/><text x="90" y="182" class="name">Physical cotton</text><text x="90" y="212" class="label">custody and certification</text>
+<rect x="370" y="147" width="270" height="92" rx="14" class="box"/><text x="395" y="182" class="name">Hyperledger Fabric</text><text x="395" y="212" class="label">organizational identities</text>
+<rect x="765" y="147" width="335" height="92" rx="14" class="box"/><text x="790" y="182" class="name">Verified bridge relay</text><text x="790" y="212" class="label">stable Fabric event identity</text>
+<path d="M295 194 H370" class="edge"/><path d="M640 194 H765" class="edge"/>
+<rect x="65" y="302" width="300" height="104" rx="14" class="box"/><text x="90" y="340" class="name">Backing attestor</text><text x="90" y="370" class="label">quantity + inspection hash + tx</text>
+<rect x="440" y="302" width="350" height="104" rx="14" class="box"/><text x="465" y="340" class="name">Ethereum</text><text x="465" y="370" class="label">CotToken · ProductNFT · Reserves</text>
+<path d="M365 354 H440" class="edge"/><path d="M935 239 V354 H790" class="edge"/>
+<text x="848" y="317" class="label">capacity + replay checks</text>
+<rect x="65" y="465" width="250" height="82" rx="14" class="box"/><text x="90" y="500" class="name">State aggregator</text><text x="90" y="525" class="label">Fabric + RPC + oracle</text>
+<path d="M615 406 V445 H190 V465" class="edge"/>
+<rect x="365" y="465" width="195" height="82" rx="14" class="box"/><text x="390" y="514" class="name">RiskAgent</text>
+<rect x="610" y="465" width="200" height="82" rx="14" class="box"/><text x="635" y="514" class="name">AllocatorAgent</text>
+<rect x="870" y="465" width="230" height="82" rx="14" class="box" style="stroke:#47dfb0"/><text x="895" y="500" class="name">Policy engine</text><text x="895" y="525" class="label">deterministic / fail closed</text>
+<path d="M315 506 H365" class="edge"/><path d="M560 506 H610" class="edge"/><path d="M810 506 H870" class="edge"/>
+<rect x="70" y="635" width="220" height="82" rx="14" class="box"/><text x="95" y="683" class="name">Audit JSONL</text>
+<rect x="390" y="635" width="220" height="82" rx="14" class="box"/><text x="415" y="683" class="name">Simulator</text>
+<rect x="690" y="635" width="280" height="82" rx="14" class="box"/><text x="715" y="670" class="name">Isolated executor</text><text x="715" y="696" class="label">local signer + revalidation</text>
+<path d="M980 547 V587 H500 V635" class="edge"/><text x="665" y="579" class="label">approve → exact eth_call</text>
+<path d="M930 547 V604 H180 V635" class="edge"/><text x="84" y="590" class="label">reject / record state hash</text>
+<path d="M610 676 H690" class="edge"/><path d="M970 676 H1140 V354 H1100" class="edge"/>
+<text x="1082" y="632" class="label" transform="rotate(-90 1082 632)">allowlisted market transaction</text>
+<text x="65" y="784" class="small">Agent proposes. Policy authorizes. Simulator verifies. Executor executes.</text>
+<text x="65" y="816" class="label">Demo: local Ethereum + real chaincode on an in-memory fixture. Physical truth relies on trusted inspection.</text>
+</svg>
