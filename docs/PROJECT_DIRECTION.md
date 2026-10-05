@@ -102,4 +102,11 @@ fixture. Documentation, benchmark output and demo assets correspond to tested co
 - Removed generated test identities/addresses from version control while retaining local
   files. Removed the unused Go chaincode alternative: the tested implementation is JavaScript.
   Preserve the user's original fabric-samples binary archive and unrelated containers.
-- GitHub Actions publication and remote verification follow the final commit.
+- Published implementation commit 1e004b6f9f7839e748f309cd07be9d24c4117366 on main
+  with the configured user identity and no assistant co-author trailer. All four GitHub
+  jobs passed: boundaries, dependencies, compose-demo and live-fabric.
+  Evidence: https://github.com/Dparini/SustainableFashionChain/actions/runs/37384234420
+- All 24 phases are complete within the documented portfolio scope. The user will apply
+  prepared GitHub description/topics personally. Local-model quality benchmarks require
+  an installed model/server; only recorded adversarial corpus results are claimed.
+  Real-money trading, physical redemption and production deployment remain outside scope.
