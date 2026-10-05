@@ -20,7 +20,7 @@
     "mocha": "^11.8.0"
   },
   "overrides": {
-    "serialize-javascript": "^7.0.5",
+    "serialize-javascript": "^7.1.2",
     "diff": "^8.0.3"
   }
 }

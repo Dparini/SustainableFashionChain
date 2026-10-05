@@ -5,7 +5,7 @@
   "main": "bridge.js",
   "scripts": {
     "start": "node start.js",
-    "dev": "nodemon start.js",
+    "dev": "node --watch start.js",
     "test": "node --test --test-name-pattern=\"^bridge:\" ../scripts/dependency-compat.test.cjs"
   },
   "keywords": [
@@ -34,9 +34,7 @@
     "@hyperledger/fabric-gateway": "^1.12.1",
     "@grpc/grpc-js": "^1.14.0"
   },
-  "devDependencies": {
-    "nodemon": "^3.1.14"
-  },
+  "devDependencies": {},
   "engines": {
     "node": ">=22.14.0"
   },
