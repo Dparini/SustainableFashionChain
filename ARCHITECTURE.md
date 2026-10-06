@@ -66,8 +66,11 @@ reserves. Stable event identity binds Fabric transaction ID, batch ID, amount
 and action. Ethereum checks replay and reserve capacity atomically with minting.
 Ethereum finality and Fabric acknowledgment are separate: retries must reconcile
 an already mined mint without submitting another mint. There is no distributed
-transaction across both chains. Legacy state-channel and sidechain placeholders
-are outside the supported verified issuance path.
+transaction across both chains. The runtime contains only backed COT relay, NFT
+mint reconciliation and confirmed recycling acknowledgment. Unsupported sidechain
+and state-channel placeholders were removed. NFT receipt recovery validates the
+original recipient and product identity even after ownership changes. Recycling
+requires a successful receipt and an idempotent Fabric bridge-role transition.
 
 ## 7. Oracle Layer
 

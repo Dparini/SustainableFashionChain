@@ -36,3 +36,17 @@ rewards remain in scope.
 - The executor is restricted to local test chains. Inclusion guards constrain trades, but compromised signing/admin keys remain outside model policy protection.
 - Manufacturing records provenance rather than redemption or physical cotton consumption.
 - The video is an annotated rendering of recorded E2E evidence, with a Fabric fixture explicitly identified. Live Fabric is tested separately.
+
+## Validation evidence
+
+Verified code commit: `4035c1d0a4cb8b83090931ffd68d0c4f85c058c3` (2026-10-06).
+
+- [All four CI jobs passed](https://github.com/Dparini/SustainableFashionChain/actions/runs/37436567364): boundary tests, dependency audits, Compose demo and live Fabric integration.
+- A separate clone from the public GitHub URL contained no `.env`, wallets, host dependencies or generated artifacts. `docker compose up --build -d` built and ran the documented stack without file edits or copied configuration.
+- Bootstrap and agent exited 0; Ethereum was healthy. Logs confirmed backed mint, replay rejection, garment NFT/recycling acknowledgment and successful `eth_call` simulation. The checkout remained clean afterward.
+- Local verification passed 49 Solidity, 10 Fabric, 18 bridge/Gateway/compatibility, 14 API and 35 agent tests, plus 50 recorded adversarial evaluations. Frontend validation also passed in CI.
+- An occupied-port test failed before starting or using any Ethereum process, leaving the pre-existing listener untouched.
+- Both videos are 1280×720, exactly 80 seconds; the lifecycle video was fully decoded without errors and representative frames inspected.
+
+The default Compose recording still uses the explicitly labelled Fabric fixture.
+The separate live-Fabric CI job verifies actual consensus and committed events.

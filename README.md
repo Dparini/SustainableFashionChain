@@ -73,7 +73,8 @@ and attestors. Software does not establish physical existence or legal title.
 The relay is not a trustless Fabric light client. Executor/attestor key compromise
 remains outside the agent policy system's protection.
 
-[Threat model, attacks and residual risks](THREAT_MODEL.md)
+[Threat model, attacks and residual risks](THREAT_MODEL.md) ·
+[Review findings and clean-clone verification](docs/REVIEW.md)
 
 ## Quick Start
 

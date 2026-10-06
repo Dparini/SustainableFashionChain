@@ -7,6 +7,7 @@ Controls below are implemented boundaries; verification evidence is tracked in
 
 | Threat | Attack | Impact | Mitigation | Residual risk |
 | --- | --- | --- | --- | --- |
+| Forged API credentials | Use published prototype JWT keys or default admin login | Unauthorized ledger access | No default API/admin credentials; ephemeral or configured secrets; domain-separated token keys | Configured key theft and host compromise |
 | Compromised LLM | Deliberately malicious proposal | Unauthorized trade | Strict action schema, independent deterministic policy, no model signing tools | Valid but poor decisions can pass bounds |
 | Prompt injection | Supplier text instructs asset transfer | Asset theft or corrupted proposal | Treat text as data; no destinations/calldata in action schema | Can affect proposal quality; rejection must be tested |
 | Hallucinated transactions | Unknown action, extra recipient or malformed numbers | Arbitrary execution | Reject unknown fields/actions, finite Decimal validation, fixed transaction builder | Builder or schema implementation bugs |
@@ -33,7 +34,7 @@ Controls below are implemented boundaries; verification evidence is tracked in
 
 Backing attestations are authorized assertions, not trustless Fabric light-client
 proofs. Generic burns do not free reserve capacity. Attestor/admin compromise can
-raise the cap with false data. Existing legacy sidechain/state-channel prototypes
-must not be used as evidence of Merkle verification, secure channels or production
-cross-chain consensus. Mainnet execution, legal redemption, custody insurance and
+raise the cap with false data. Unsupported sidechain/state-channel prototypes were
+removed; the relay does not claim Merkle verification or production cross-chain
+consensus. Mainnet execution, legal redemption, custody insurance and
 physical audits are deliberately outside the demonstration.

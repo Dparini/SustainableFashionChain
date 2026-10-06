@@ -143,3 +143,7 @@ No further feature expansion is planned beyond verification and maintenance.
 - Removed unused experimental contracts and alternate bridge runners. Ledger queries close iterators and reject malformed records.
 - Regression tests cover lost acknowledgment, concurrent retries, stream failure, restricted NFT state and corrupt queries. See docs/REVIEW.md.
 - Videos now last exactly 80 seconds with chapter transitions, evidence reveal and a progress timeline.
+
+- Removed implicit public API/admin credentials and JWT/session defaults. API keys require explicit configuration; JWT keys are ephemeral or configured and separated by domain. The live runner generates its own reader credential.
+- Code commit 4035c1d passed all four CI jobs: https://github.com/Dparini/SustainableFashionChain/actions/runs/37436567364
+- Public clean clone passed the Docker Quick Start without edits or copied configuration; bootstrap and agent exited 0, Ethereum stayed healthy, and the checkout remained clean. Validation details are in docs/REVIEW.md.
