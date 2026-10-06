@@ -1,7 +1,7 @@
 {
-  "capturedAt": "2026-10-05T22:25:29.429Z",
+  "capturedAt": "2026-10-06T07:09:59.692Z",
   "scope": "Local Ethereum and in-memory Fabric chaincode fixture",
-  "setup": "\n\nWarning: Unused function parameter. Remove or comment out the variable name to silence this warning.\n  --> ./contracts/ProductNFT.sol:74:9:\n   |\n74 |         string memory tokenURI_,  // Unused parameter to match previous implementation\n   |         ^^^^^^^^^^^^^^^^^^^^^^^\n\nWarning: Unused function parameter. Remove or comment out the variable name to silence this warning.\n   --> ./contracts/SidechainBridge.sol:298:9:\n    |\n298 |         bytes32[][] calldata merkleProofs\n    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nWarning: Unused function parameter. Remove or comment out the variable name to silence this warning.\n   --> ./contracts/SidechainBridge.sol:357:9:\n    |\n357 |         bytes calldata signature\n    |         ^^^^^^^^^^^^^^^^^^^^^^^^\n\nFabric: real chaincode using an in-memory fixture (no live Fabric network)\nEthereum: 42,000 verified kg; 35,000 COT minted via VerifiedRelay\nBridge replay: EVENT_ALREADY_PROCESSED; acknowledgment retry reconciled\nLocal demo configuration: <generated-demo-directory>/local.json\n",
+  "setup": "\n{\"batchId\":1,\"level\":\"info\",\"message\":\"Processing NFT minting transaction\",\"service\":\"optimized-bridge\",\"timestamp\":\"2026-10-06T07:09:54.095Z\"}\n{\"level\":\"info\",\"message\":\"NFT minted successfully\",\"service\":\"optimized-bridge\",\"timestamp\":\"2026-10-06T07:09:54.106Z\",\"tokenId\":\"1\",\"transactionHash\":\"0x3d7629aec23dcb5e20d550f4f0af1f8392d8f9af972e70075ab02d31cc2a8093\"}\n{\"level\":\"info\",\"message\":\"Product recycling recorded on Fabric\",\"productId\":\"DEMO-GARMENT-001\",\"service\":\"optimized-bridge\",\"timestamp\":\"2026-10-06T07:09:54.118Z\",\"tokenId\":\"1\"}\nLifecycle: DEMO-GARMENT-001 → ProductNFT #1 → Ethereum recycling → Fabric RECYCLING_INITIATED\nFabric: real chaincode using an in-memory fixture (no live Fabric network)\nEthereum: 42,000 verified kg; 35,000 COT minted via VerifiedRelay\nBridge replay: EVENT_ALREADY_PROCESSED; acknowledgment retry reconciled\nLocal demo configuration: <generated-demo-directory>/local.json\n",
   "fabric": {
     "kind": "in-memory Fabric chaincode fixture",
     "batches": [
@@ -12,8 +12,8 @@
         "producer": "Demo farm",
         "quantityKg": 42000,
         "certificationHash": "0xfc47250a034f1a2e27a6afdbfeb5cada6c204e39c13302c9bd3aceff575b01ae",
-        "createdAt": "1791239119000",
-        "verifiedAt": "1791239119000",
+        "createdAt": "1791270594000",
+        "verifiedAt": "1791270594000",
         "rwaStatus": "TOKENIZED",
         "type": "cotton",
         "farmId": "Demo farm",
@@ -27,7 +27,7 @@
         "custodyHistory": [
           {
             "holder": "Demo farm",
-            "timestamp": "1791239119000",
+            "timestamp": "1791270594000",
             "location": "Demo origin"
           }
         ],
@@ -37,31 +37,31 @@
           {
             "type": "Creation",
             "actor": "Demo farm",
-            "timestamp": "1791239119000",
+            "timestamp": "1791270594000",
             "details": "Cotton batch registered on blockchain"
           },
           {
             "type": "Stored",
             "actor": "producer",
-            "timestamp": "1791239119000",
+            "timestamp": "1791270594000",
             "details": "Stored at warehouse DEMO-WH"
           },
           {
             "type": "TokenizationRequested",
             "actor": "certifier",
-            "timestamp": "1791239119000",
+            "timestamp": "1791270594000",
             "details": "Tokenization requested for 35000 kg at warehouse DEMO-WH"
           },
           {
             "type": "TokenizationApproved",
             "actor": "certifier",
-            "timestamp": "1791239119000",
+            "timestamp": "1791270594000",
             "details": "Tokenization request DEMO-REQUEST-001 approved for 35000 kg"
           },
           {
             "type": "TokenizationCompleted",
             "actor": "bridge",
-            "timestamp": "1791239119000",
+            "timestamp": "1791270594000",
             "details": "Tokenization completed on Ethereum with transaction 0xce7933ce9375b03b60eabe67a63d09874f377ea1eaff7add5adf72872fbf8be2"
           }
         ],
@@ -75,12 +75,120 @@
     "rejected_batches": 1,
     "supplier_name": "Demo cotton cooperative"
   },
+  "lifecycle": {
+    "scope": "Fabric chaincode fixture and local Ethereum",
+    "batchId": "DEMO-COTTON-001",
+    "verifiedKg": "42000",
+    "mintedCOT": "35000",
+    "certificationHash": "0xfc47250a034f1a2e27a6afdbfeb5cada6c204e39c13302c9bd3aceff575b01ae",
+    "fabricVerificationTxId": "2790a8038103aab37e50f4c674249a603677a4dd32aa93b4f126eefb222ecf47",
+    "bridgeEvent": {
+      "requestId": "DEMO-REQUEST-001",
+      "batchId": "DEMO-COTTON-001",
+      "quantity": 35000,
+      "warehouseId": "DEMO-WH",
+      "fabricTxId": "e07fbdc5bc2a112fdf3761ca0e21281b3bb58d89ddcaec253a0fafca605cd56a"
+    },
+    "garment": {
+      "id": "DEMO-GARMENT-001",
+      "type": "finished",
+      "manufacturer": "Demo manufacturer",
+      "productDate": "2026-10-06",
+      "materials": [
+        {
+          "batchId": "DEMO-COTTON-001",
+          "type": "cotton",
+          "percentage": 100,
+          "sustainable": true
+        }
+      ],
+      "batchIDs": [
+        "DEMO-COTTON-001"
+      ],
+      "status": "FINISHED",
+      "nftTokenId": null,
+      "custodyHistory": [
+        {
+          "holder": "Demo manufacturer",
+          "timestamp": "1791270594000"
+        }
+      ],
+      "history": [
+        {
+          "type": "Creation",
+          "actor": "Demo manufacturer",
+          "timestamp": "1791270594000",
+          "details": "Finished product created from 1 batch(es)"
+        }
+      ]
+    },
+    "nft": {
+      "tokenId": "1",
+      "owner": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "mintTx": "0x3d7629aec23dcb5e20d550f4f0af1f8392d8f9af972e70075ab02d31cc2a8093",
+      "metadataURI": "ipfs://demo/DEMO-GARMENT-001"
+    },
+    "recycling": {
+      "ethereumTx": "0x5e5ff2078a85d6cc8ec77634a1afd88c386359d1bda4e51964387f3bb3271b84",
+      "ethereumRecycled": true,
+      "fabricProduct": {
+        "id": "DEMO-GARMENT-001",
+        "type": "finished",
+        "manufacturer": "Demo manufacturer",
+        "productDate": "2026-10-06",
+        "materials": [
+          {
+            "batchId": "DEMO-COTTON-001",
+            "type": "cotton",
+            "percentage": 100,
+            "sustainable": true
+          }
+        ],
+        "batchIDs": [
+          "DEMO-COTTON-001"
+        ],
+        "status": "RECYCLING_INITIATED",
+        "nftTokenId": "1",
+        "custodyHistory": [
+          {
+            "holder": "Demo manufacturer",
+            "timestamp": "1791270594000"
+          }
+        ],
+        "history": [
+          {
+            "type": "Creation",
+            "actor": "Demo manufacturer",
+            "timestamp": "1791270594000",
+            "details": "Finished product created from 1 batch(es)"
+          },
+          {
+            "type": "NFTMinted",
+            "actor": "bridge",
+            "timestamp": "1791270594000",
+            "details": "NFT minted on Ethereum with token ID 1"
+          }
+        ],
+        "statusHistory": [
+          {
+            "status": "RECYCLING_INITIATED",
+            "timestamp": "1791270594117"
+          }
+        ]
+      }
+    },
+    "backingAfterRecycling": {
+      "verifiedKg": "42000",
+      "totalCOT": "35000",
+      "capacityReleased": false
+    }
+  },
   "simulation": {
-    "decisionId": "dec_2bd58f2fc0394873a545756e68fed086",
-    "timestamp": "2026-10-05T22:25:22.015952+00:00",
-    "stateHash": "0x180d6287f4dec46059e074ff1526addbf879f13b52db190cb1d23828b29b9719",
+    "decisionId": "dec_98bc6f19e9c1442fa4b33a0d76769955",
+    "timestamp": "2026-10-06T07:09:55.581440+00:00",
+    "stateHash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
     "state": {
-      "timestamp": 1791239132,
+      "timestamp": 1791270609,
       "source": "local_chain",
       "fabric_connected": false,
       "ethereum_connected": true,
@@ -95,7 +203,7 @@
       },
       "oracle": {
         "price": "1.72",
-        "updated_at": 1791239122,
+        "updated_at": 1791270596,
         "round_id": 1,
         "answered_in_round": 1
       },
@@ -111,14 +219,14 @@
       },
       "bridge_replay_detected": false,
       "chain_id": 31337,
-      "block_number": 15
+      "block_number": 18
     },
     "model": "deterministic-baseline",
     "riskReport": {
       "supply_risk": "0.5",
       "liquidity_risk": "0",
-      "oracle_risk": "0.002777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777778",
-      "overall_risk": "0.2505555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555556",
+      "oracle_risk": "0.003611111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "overall_risk": "0.2507222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222",
       "confidence": "0.9",
       "reason": "Baseline scores use shipment counts, liquidity and oracle age; supplier text is not an instruction."
     },
@@ -139,7 +247,7 @@
       "expected_cot_delta": "500",
       "expected_usd_delta": "-861.72",
       "post_trade_exposure": "0.2580443836339850454278135839364370671755541953215953143940757810343379061198526146497197517973091372",
-      "state_hash": "0x180d6287f4dec46059e074ff1526addbf879f13b52db190cb1d23828b29b9719",
+      "state_hash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
       "action_hash": "0xc5777e3ef653b9e7240ff37200f7b2ba31024e6bd095a5afe124853c4c882934",
       "reason": "Exact allowlisted transaction passed eth_call and gas estimation; quote matches expected deltas."
     },
@@ -147,11 +255,11 @@
     "error": null
   },
   "rejection": {
-    "decisionId": "dec_f250e7e21e314fdca2e0ad64c3e79e52",
-    "timestamp": "2026-10-05T22:25:23.083792+00:00",
-    "stateHash": "0x180d6287f4dec46059e074ff1526addbf879f13b52db190cb1d23828b29b9719",
+    "decisionId": "dec_b5ab3198b8174e50a8d6c3d2a6444af6",
+    "timestamp": "2026-10-06T07:09:56.330050+00:00",
+    "stateHash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
     "state": {
-      "timestamp": 1791239132,
+      "timestamp": 1791270609,
       "source": "local_chain",
       "fabric_connected": false,
       "ethereum_connected": true,
@@ -166,7 +274,7 @@
       },
       "oracle": {
         "price": "1.72",
-        "updated_at": 1791239122,
+        "updated_at": 1791270596,
         "round_id": 1,
         "answered_in_round": 1
       },
@@ -182,14 +290,14 @@
       },
       "bridge_replay_detected": false,
       "chain_id": 31337,
-      "block_number": 15
+      "block_number": 18
     },
     "model": "deterministic-baseline",
     "riskReport": {
       "supply_risk": "0.5",
       "liquidity_risk": "0",
-      "oracle_risk": "0.002777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777778",
-      "overall_risk": "0.2505555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555556",
+      "oracle_risk": "0.003611111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "overall_risk": "0.2507222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222",
       "confidence": "0.9",
       "reason": "Baseline scores use shipment counts, liquidity and oracle age; supplier text is not an instruction."
     },
@@ -224,11 +332,11 @@
     "error": null
   },
   "invalid": {
-    "decisionId": "dec_d72bde1e63a345edbe4e2e758bfdbf68",
-    "timestamp": "2026-10-05T22:25:24.598876+00:00",
-    "stateHash": "0x180d6287f4dec46059e074ff1526addbf879f13b52db190cb1d23828b29b9719",
+    "decisionId": "dec_0ec5664308bd4ae98bbcddcfdfeada15",
+    "timestamp": "2026-10-06T07:09:57.112266+00:00",
+    "stateHash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
     "state": {
-      "timestamp": 1791239132,
+      "timestamp": 1791270609,
       "source": "local_chain",
       "fabric_connected": false,
       "ethereum_connected": true,
@@ -243,7 +351,7 @@
       },
       "oracle": {
         "price": "1.72",
-        "updated_at": 1791239122,
+        "updated_at": 1791270596,
         "round_id": 1,
         "answered_in_round": 1
       },
@@ -259,14 +367,14 @@
       },
       "bridge_replay_detected": false,
       "chain_id": 31337,
-      "block_number": 15
+      "block_number": 18
     },
     "model": "deterministic-baseline",
     "riskReport": {
       "supply_risk": "0.5",
       "liquidity_risk": "0",
-      "oracle_risk": "0.002777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777778",
-      "overall_risk": "0.2505555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555556",
+      "oracle_risk": "0.003611111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "overall_risk": "0.2507222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222",
       "confidence": "0.9",
       "reason": "Baseline scores use shipment counts, liquidity and oracle age; supplier text is not an instruction."
     },
@@ -280,11 +388,11 @@
     }
   },
   "execution": {
-    "decisionId": "dec_5c1c4a153919460d9885ba5efddc9e15",
-    "timestamp": "2026-10-05T22:25:25.702498+00:00",
-    "stateHash": "0x180d6287f4dec46059e074ff1526addbf879f13b52db190cb1d23828b29b9719",
+    "decisionId": "dec_656891792a834ed98a9ccfc12ab5e29b",
+    "timestamp": "2026-10-06T07:09:57.867852+00:00",
+    "stateHash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
     "state": {
-      "timestamp": 1791239132,
+      "timestamp": 1791270609,
       "source": "local_chain",
       "fabric_connected": false,
       "ethereum_connected": true,
@@ -299,7 +407,7 @@
       },
       "oracle": {
         "price": "1.72",
-        "updated_at": 1791239122,
+        "updated_at": 1791270596,
         "round_id": 1,
         "answered_in_round": 1
       },
@@ -315,14 +423,14 @@
       },
       "bridge_replay_detected": false,
       "chain_id": 31337,
-      "block_number": 15
+      "block_number": 18
     },
     "model": "deterministic-baseline",
     "riskReport": {
       "supply_risk": "0.5",
       "liquidity_risk": "0",
-      "oracle_risk": "0.002777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777777778",
-      "overall_risk": "0.2505555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555555556",
+      "oracle_risk": "0.003611111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111111",
+      "overall_risk": "0.2507222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222222",
       "confidence": "0.9",
       "reason": "Baseline scores use shipment counts, liquidity and oracle age; supplier text is not an instruction."
     },
@@ -343,15 +451,15 @@
       "expected_cot_delta": "500",
       "expected_usd_delta": "-861.72",
       "post_trade_exposure": "0.2580443836339850454278135839364370671755541953215953143940757810343379061198526146497197517973091372",
-      "state_hash": "0x180d6287f4dec46059e074ff1526addbf879f13b52db190cb1d23828b29b9719",
+      "state_hash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
       "action_hash": "0xc5777e3ef653b9e7240ff37200f7b2ba31024e6bd095a5afe124853c4c882934",
       "reason": "Exact allowlisted transaction passed eth_call and gas estimation; quote matches expected deltas."
     },
-    "executionTx": "0xca0c04461a110f028e2af01279ae7fa2e3f7efcd45961ef64fe6107d7d73244d",
+    "executionTx": "0xdf9eeee888320f6ac78ce6edeb34190c58220d84357af81efaf8b6abf3d740d9",
     "error": null,
     "executionRevalidation": {
       "state": {
-        "timestamp": 1791239132,
+        "timestamp": 1791270609,
         "source": "local_chain",
         "fabric_connected": false,
         "ethereum_connected": true,
@@ -366,7 +474,7 @@
         },
         "oracle": {
           "price": "1.72",
-          "updated_at": 1791239122,
+          "updated_at": 1791270596,
           "round_id": 1,
           "answered_in_round": 1
         },
@@ -382,9 +490,9 @@
         },
         "bridge_replay_detected": false,
         "chain_id": 31337,
-        "block_number": 15
+        "block_number": 18
       },
-      "stateHash": "0x180d6287f4dec46059e074ff1526addbf879f13b52db190cb1d23828b29b9719",
+      "stateHash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
       "policy": {
         "approved": true,
         "violations": []
@@ -396,24 +504,24 @@
         "expected_cot_delta": "500",
         "expected_usd_delta": "-861.72",
         "post_trade_exposure": "0.2580443836339850454278135839364370671755541953215953143940757810343379061198526146497197517973091372",
-        "state_hash": "0x180d6287f4dec46059e074ff1526addbf879f13b52db190cb1d23828b29b9719",
+        "state_hash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
         "action_hash": "0xc5777e3ef653b9e7240ff37200f7b2ba31024e6bd095a5afe124853c4c882934",
         "reason": "Exact allowlisted transaction passed eth_call and gas estimation; quote matches expected deltas."
       },
       "transaction": {
         "from": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
         "to": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-        "data": "0x40993b2600000000000000000000000000000000000000000000001b1ae4d6e2ef5000000000000000000000000000000000000000000000000000000000000033842be0000000000000000000000000000000000000000000000000000000006ac42418",
+        "data": "0x40993b2600000000000000000000000000000000000000000000001b1ae4d6e2ef5000000000000000000000000000000000000000000000000000000000000033842be0000000000000000000000000000000000000000000000000000000006ac49f0d",
         "value": 0,
         "chainId": 31337,
-        "nonce": 2,
+        "nonce": 3,
         "gas": 119656,
-        "gasPrice": 1123832078
+        "gasPrice": 1083159062
       },
       "status": "confirmed",
-      "executionTx": "0xca0c04461a110f028e2af01279ae7fa2e3f7efcd45961ef64fe6107d7d73244d",
+      "executionTx": "0xdf9eeee888320f6ac78ce6edeb34190c58220d84357af81efaf8b6abf3d740d9",
       "postState": {
-        "timestamp": 1791239138,
+        "timestamp": 1791270612,
         "source": "local_chain",
         "fabric_connected": false,
         "ethereum_connected": true,
@@ -428,7 +536,7 @@
         },
         "oracle": {
           "price": "1.72",
-          "updated_at": 1791239122,
+          "updated_at": 1791270596,
           "round_id": 1,
           "answered_in_round": 1
         },
@@ -444,17 +552,17 @@
         },
         "bridge_replay_detected": false,
         "chain_id": 31337,
-        "block_number": 16
+        "block_number": 19
       },
-      "postStateHash": "0xfc39b039ed286a5fa83b876fbb33d978e8681bebf1f66d201ce42fec42035c41"
+      "postStateHash": "0x1422f244830b5e96047399886579c217090b5bd42bb3ed65752feb1d288131a0"
     }
   },
   "stale": {
-    "decisionId": "dec_b87f98a397ca41e8b35175c424df02dc",
-    "timestamp": "2026-10-05T22:25:29.299647+00:00",
-    "stateHash": "0x1c3ab93835710592f2c36293ceda56cc45251e706c3fe964cbd049d9970fded1",
+    "decisionId": "dec_cb2d00888b204beabc8153f503394cee",
+    "timestamp": "2026-10-06T07:09:59.626502+00:00",
+    "stateHash": "0x67275af35e258207e827cdb5431e63bb45da76775b75e65a4e97c9a2536be530",
     "state": {
-      "timestamp": 1791239141,
+      "timestamp": 1791270613,
       "source": "local_chain",
       "fabric_connected": false,
       "ethereum_connected": true,
@@ -469,7 +577,7 @@
       },
       "oracle": {
         "price": "1.72",
-        "updated_at": 1791235537,
+        "updated_at": 1791267011,
         "round_id": 2,
         "answered_in_round": 2
       },
@@ -485,7 +593,7 @@
       },
       "bridge_replay_detected": false,
       "chain_id": 31337,
-      "block_number": 17
+      "block_number": 20
     },
     "model": "deterministic-baseline",
     "riskReport": {
@@ -507,7 +615,7 @@
       "violations": [
         {
           "policy": "ORACLE_FRESHNESS",
-          "requested": "3604",
+          "requested": "3602",
           "allowed": "3600"
         }
       ]

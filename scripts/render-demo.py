@@ -116,6 +116,58 @@ def main():
     gifs=[slides[i][0].resize((960,540),Image.Resampling.LANCZOS) for i in [3,4,6]]
     gifs[0].save(ASSETS/'terminal-demo.gif',save_all=True,append_images=gifs[1:],duration=[5500,5500,6500],loop=0,optimize=True)
     slides[0][0].save(ASSETS/'demo-poster.png')
+    lifecycle = r['lifecycle']
+    footer = 'Actual recorded results • Fabric chaincode fixture • Local Ethereum • No real funds'
+    lifecycle_slides = [
+        (terminal('Verified physical state, public onchain assets', 'SustainableFashionChain', [
+            'Farm → Fabric → Verified relay → Ethereum', '',
+            'CotToken: backed cotton claims', 'ProductNFT: garment provenance',
+            'Recycling: Ethereum event recorded back on Fabric', '',
+            '1 COT = claim representing 1 kg of certified cotton'], footer), 10),
+        (terminal('1 / Register physical cotton', 'Fabric: registerCottonBatch → storeCottonBatch', [
+            f"Batch: {lifecycle['batchId']}", f"Quantity: {int(lifecycle['verifiedKg']):,} kg", '',
+            'Custody: Demo farm → DEMO-WH', 'Permissioned identities record provenance.',
+            'This recording uses actual chaincode with an in-memory ledger.',
+            'The separate live E2E runner exercises Fabric consensus.'], footer), 12),
+        (terminal('2 / Verify certification', 'Fabric certifier → separate Ethereum attestor', [
+            'Certifier attribute: sfc.role=certifier',
+            f"Certification: {lifecycle['certificationHash'][:30]}...",
+            f"Fabric verification tx: {lifecycle['fabricVerificationTxId'][:30]}...", '',
+            f"Reserve registry: {int(lifecycle['verifiedKg']):,} verified kg",
+            'An authorized relay cannot create reserve attestations.'], footer), 12),
+        (terminal('3 / Bridge verified state and mint backed COT', 'VerifiedRelay → CotToken.mintVerifiedBatch', [
+            f"Approved issuance: {int(lifecycle['mintedCOT']):,} COT", 'Backing: 42,000 verified kg', '',
+            'Supply cannot exceed registered backing.', 'Replay: EVENT_ALREADY_PROCESSED',
+            'Lost acknowledgment: recover receipt; no second mint.'], footer), 12),
+        (terminal('4 / Record garment provenance', 'Fabric: createFinishedProduct', [
+            f"Garment: {lifecycle['garment']['id']}",
+            f"Manufacturer: {lifecycle['garment']['manufacturer']}",
+            f"Source batch: {lifecycle['batchId']}", 'Fabric status: FINISHED', '',
+            'Manufacturing records provenance.',
+            'It does not automatically redeem COT or release reserve capacity.'], footer), 10),
+        (terminal('5 / Mint the garment ProductNFT', 'Fabric NFTMintingRequested → bridge → Ethereum', [
+            f"ProductNFT #{lifecycle['nft']['tokenId']}", f"Owner: {lifecycle['nft']['owner']}",
+            f"Metadata: {lifecycle['nft']['metadataURI']}", '',
+            'Confirmed mint transaction:', lifecycle['nft']['mintTx'],
+            'Bridge records the token ID on the Fabric product.'], footer), 12),
+        (terminal('6 / Recycle and synchronize both ledgers', 'Ethereum ProductRecycled → bridge → Fabric', [
+            f"ProductNFT #{lifecycle['nft']['tokenId']}: recycled = true", '',
+            'Confirmed recycling transaction:', lifecycle['recycling']['ethereumTx'], '',
+            f"Fabric status: {lifecycle['recycling']['fabricProduct']['status']}",
+            'Provenance remains linked. COT backing is unchanged.'], footer), 12),
+    ]
+    lifecycle_frames = frames/'lifecycle'; lifecycle_frames.mkdir(exist_ok=True)
+    listing_lines = []
+    for index, (slide, duration) in enumerate(lifecycle_slides):
+        file = lifecycle_frames/f'{index:02}.png'; slide.save(file)
+        listing_lines.extend([f"file '{file}'", f'duration {duration}'])
+    listing_lines.append(f"file '{lifecycle_frames/'06.png'}'")
+    lifecycle_listing = lifecycle_frames/'frames.txt'
+    lifecycle_listing.write_text('\n'.join(listing_lines)+'\n')
+    subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-f','concat','-safe','0','-i',str(lifecycle_listing),
+                    '-r','20','-c:v','libx264','-pix_fmt','yuv420p','-t','80','-movflags','+faststart',str(ASSETS/'cotton-lifecycle.mp4')],check=True)
+    gif_frames = [slide.resize((960,540),Image.Resampling.LANCZOS) for slide, _ in lifecycle_slides[1:]]
+    gif_frames[0].save(ASSETS/'cotton-lifecycle.gif',save_all=True,append_images=gif_frames[1:],duration=3500,loop=0,optimize=True)
     print('Rendered 80-second video and terminal GIF from the recorded E2E decisions.')
 
 

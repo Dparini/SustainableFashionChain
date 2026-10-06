@@ -144,7 +144,7 @@ async function rewrite(directory) {
   await fs.writeFile(path.join(root,'docs/assets/live-e2e-summary.json'),JSON.stringify({
     verifiedAt:new Date().toISOString(),fabricVersion,caVersion,samplesCommit,
     fabric:'live two-organization test network with CA identities',ethereum:'isolated local test chain',
-    assertions:'Committed verification and approval; stable emitted event; backed mint; replay reject/reconcile; exact eth_call; unsafe proposal rejection; guarded execution; stale oracle rejection; audit hashes',result:'passed'},null,2));
+    assertions:'Committed verification and approval; stable emitted event; backed COT mint; replay reject/reconcile; garment provenance; ProductNFT mint; Ethereum recycling acknowledged on Fabric; exact eth_call; unsafe proposal rejection; guarded execution; stale oracle rejection; audit hashes',result:'passed'},null,2));
 })().catch(error=>{console.error(error.message);process.exitCode=1;}).finally(async()=>{
   if(api && api.exitCode===null){const closed=new Promise(resolve=>api.once('exit',resolve));api.kill('SIGTERM');await closed;}
   if(started){

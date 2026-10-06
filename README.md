@@ -1,34 +1,79 @@
 # SustainableFashionChain
 
-Verifiable RWA infrastructure from physical supply chains to autonomous onchain markets.
+**Hybrid blockchain infrastructure for bringing verified real-world supply-chain state onchain.**
 
-SustainableFashionChain connects permissioned supply-chain data with Ethereum,
-turning verified physical commodities into programmable onchain assets.
+Hyperledger Fabric records permissioned commodity provenance; Ethereum provides
+public tokenization and settlement. **1 COT = a claim representing 1 kg of certified cotton.**
 
-**Hyperledger Fabric → Cross-chain Bridge → Ethereum → Autonomous Agents**
-
-![Verification workflow](https://github.com/Dparini/SustainableFashionChain/actions/workflows/verify.yml/badge.svg)
-
-![Architecture](docs/assets/architecture.svg)
-
-[▶ Demo](#demo) · [⚡ Quick Start](#quick-start) · [🏗 Architecture](ARCHITECTURE.md) ·
-[🤖 Autonomous Agent](agent/README.md) · [🔐 Security Model](THREAT_MODEL.md) ·
-[🧪 E2E Tests](#verification)
-
-**Agent = proposes · Policy Engine = authorizes · Simulator = verifies effects · Executor = executes.**
+![Build, invariants and E2E](https://github.com/Dparini/SustainableFashionChain/actions/workflows/verify.yml/badge.svg)
 
 ## Demo
 
-[Watch the 80-second demonstration](docs/assets/demo.mp4): verify a cotton batch,
-relay backed COT issuance, propose a trade, authorize and simulate it, then reject
-an oversized proposal. [Reproduce the recording](docs/DEMO.md).
+![Cotton verification, backed mint, garment NFT and recycling](docs/assets/cotton-lifecycle.gif)
 
-![Approved simulation and rejected trade](docs/assets/terminal-demo.gif)
+[▶ Watch the 80-second lifecycle video](docs/assets/cotton-lifecycle.mp4) ·
+[Reproduce it](docs/DEMO.md) · [Run the E2E demo](#run-the-e2e-demo)
 
-The video uses real Solidity contracts on a local Ethereum chain and the actual
-Fabric chaincode with an explicitly labelled in-memory fixture. A separate live
-integration runner exercises Fabric consensus, CA identities and committed events.
-No real funds are used.
+**Farm → Fabric custody and certification → bridge → backed COT → garment → ProductNFT → recycling.**
+
+The recording shows actual chaincode and bridge handlers with real Solidity
+transactions on local Ethereum. Fabric is an explicitly labelled in-memory
+fixture in the recording; the separate live E2E runner uses a real two-organization
+Fabric network with CA identities and committed events. No real funds or paid API
+are required.
+
+## Why this exists
+
+A token alone cannot establish where a physical commodity came from, whether its
+certification was verified, or whether the same offchain event was already used
+to mint it. This project connects private custody records to public asset claims
+and preserves garment provenance through recycling.
+
+Sustainable fashion is the use case. The engineering problem is **verifiable RWA
+state across permissioned and public ledgers**, with explicit trust boundaries.
+
+## Architecture
+
+![Permissioned provenance, cross-chain relay and public assets](docs/assets/lifecycle-architecture.svg)
+
+Fabric is authoritative for recorded custody and certification. A separate
+attestor registers verified capacity; the bridge relays approved state to
+Ethereum. CotToken enforces backing and replay protection. ProductNFT binds a
+garment to its Fabric product and source batches; recycling events flow back to
+Fabric.
+
+[Design choices and trade-offs](ARCHITECTURE.md) · [RWA model](docs/RWA_MODEL.md)
+
+## End-to-End Flow
+
+1. **Register physical cotton:** record a 42,000 kg batch, producer and origin.
+2. **Record custody:** move the batch to the warehouse on Fabric.
+3. **Verify certification:** an authorized certifier binds an inspection hash and Fabric transaction ID.
+4. **Bridge verified state:** approve a 35,000 kg tokenization request; a separate attestor registers backing.
+5. **Mint backed COT:** issue 35,000 COT; reject replay and reconcile lost acknowledgment without another mint.
+6. **Record manufacture:** create a garment referencing the source batch.
+7. **Mint ProductNFT:** relay the NFT request, verify ownership and record its token ID on Fabric.
+8. **Recycle:** the owner emits an Ethereum recycling event; the bridge records `RECYCLING_INITIATED` on Fabric.
+
+Manufacturing and recycling preserve provenance. They do not automatically redeem
+COT, prove physical consumption or release reserve capacity.
+
+## Security / Trust Model
+
+- **Backing:** every COT issuance route consumes attested batch capacity;
+  `COT.totalSupply <= verifiedCottonKg`, in 18-decimal units.
+- **Replay:** Ethereum records stable event IDs and Fabric transaction IDs.
+  Repeating an event reverts with `EVENT_ALREADY_PROCESSED`.
+- **Oracle:** missing, future, incomplete, nonpositive or older-than-one-hour prices fail closed.
+- **Authority:** Fabric certifier, Ethereum attestor and relay have separate roles.
+  Rewards transfer prefunded COT; generic burns do not free issuance capacity.
+
+Certification and backing depend on trusted inspectors, organization administrators
+and attestors. Software does not establish physical existence or legal title.
+The relay is not a trustless Fabric light client. Executor/attestor key compromise
+remains outside the agent policy system's protection.
+
+[Threat model, attacks and residual risks](THREAT_MODEL.md)
 
 ## Quick Start
 
@@ -40,125 +85,128 @@ cd SustainableFashionChain
 docker compose up --build
 ```
 
-Bootstrap verifies 42,000 kg, registers backing with a separate attestor, relays
-35,000 COT and funds a local exercise market. The agent reads actual onchain
-state, proposes BUY 500 COT, checks policies and runs `eth_call`. Simulation is
-the default; bootstrap transactions are confined to the local test chain.
-The Ethereum service stays running after the agent exits successfully.
+Bootstrap runs the cotton → COT → garment NFT → recycling lifecycle and logs its
+results. It then funds a local exercise market; the agent checks a proposal and
+runs `eth_call` without sending a trade. The Ethereum service stays running after
+bootstrap and agent exit successfully.
 
 ```sh
-docker compose run --rm agent status --config /demo/local.json
-docker compose run --rm agent run --config /demo/local.json
+docker compose logs bootstrap agent
 docker compose down --volumes
 ```
 
-Removing demo volumes resets this demo's generated state. This Compose stack
-uses a Fabric fixture; it does not start a Fabric consensus network.
+This default stack uses the Fabric fixture. Removing its volumes resets generated
+demo state. Local Ethereum, the demo price feed and collateral have no economic value.
 
-For the credential-free offline agent, with Python 3.11+ and uv:
+## Run the E2E Demo
+
+For automated verification, install Node 22+, Docker, Python 3.11+ and uv:
 
 ```sh
+npm ci --prefix ethereum
+npm ci --prefix bridging
+npm ci --prefix fabric/application
+npm ci --prefix fabric/chaincode/supplychain
 uv sync --project agent --extra test --frozen
-agent/.venv/bin/sfc status
-agent/.venv/bin/sfc demo
-agent/.venv/bin/python -m agent run --mode simulation
-agent/.venv/bin/sfc benchmark
+node scripts/local-e2e.cjs
 ```
 
-Offline simulation is analytical and reports no fabricated gas estimate.
-[Agent configuration and explicit local execution](agent/README.md).
+The harness starts its own Ethereum process, verifies backing and replay, mints
+and recycles a garment NFT through the bridge, checks exact simulation effects,
+rejects dangerous proposals, executes one guarded local trade and rejects a stale
+oracle. It stops its own process afterward.
 
-## Verified assets and bridge
+To test the same pipeline against **live Fabric consensus and CA identities**:
 
-**1 COT = a claim representing 1 kg of verified cotton.** Each batch binds
-physical custody, a Fabric record, certification hash, verification transaction,
-bridge event and Ethereum reserve. ProductNFT retains garment provenance.
+```sh
+node scripts/fabric-live-e2e.cjs
+```
 
-`CottonReserveRegistry` limits every COT issuance route to attested batch capacity:
-`COT.totalSupply <= verifiedCottonKg` (both in 18-decimal units). Rewards transfer
-prefunded COT. Burning does not automatically release physical reserve capacity.
+The runner downloads pinned official tools, deploys the chaincode in an isolated
+two-organization network and consumes committed Fabric events. It refuses to
+reuse existing Fabric containers and removes only its own resources. Allow several
+minutes; network ports and prerequisites are documented in [development notes](docs/DEVELOPMENT.md).
 
-The event identifier is `keccak256(abi.encode(fabricTxId, batchIdHash, amount,
-"MINT_COT"))`. Ethereum records both processed events and Fabric transaction IDs.
-Replaying the same event reverts with `EVENT_ALREADY_PROCESSED`; changing its
-amount cannot bypass the transaction guard. A retry after a lost Fabric
-acknowledgment recovers the mined receipt without minting again.
+[Recording commands and scope](docs/DEMO.md) ·
+[Separately configured API E2E suite](ethereum/test/e2e-test.js)
 
-Backing attestations are trusted assertions about custody. They do not establish
-legal title or prove the physical existence of cotton. See [RWA semantics](docs/RWA_MODEL.md)
-and [trust assumptions](ARCHITECTURE.md).
+## Smart Contracts
 
-## Autonomous Agent
+| Contract | Responsibility |
+| --- | --- |
+| [CotToken](ethereum/contracts/CotToken.sol) | Backed cotton claims and replay rejection |
+| [CottonReserveRegistry](ethereum/contracts/CottonReserveRegistry.sol) | Verified capacity and cumulative issuance per batch |
+| [ProductNFT](ethereum/contracts/ProductNFT.sol) | Garment provenance, ownership and recycling |
+| [CircularRewards](ethereum/contracts/CircularRewards.sol) | Funded rewards for circular activity |
 
-RiskAgent is read-only. AllocatorAgent returns a strict HOLD, BUY_COT or SELL_COT
-proposal. The default agents are deterministic; an optional local Ollama adapter
-produces schema-validated proposals through the same boundaries.
+The fixed market, price feed and USD collateral in `ethereum/contracts/demo/`
+are local test fixtures. They are not a production exchange or live Chainlink feed.
 
-The model never has access to signing keys and cannot construct arbitrary
-transactions. Unknown actions, extra fields and invalid numbers are rejected.
-The independent policy engine enforces:
+## Fabric Network
 
-- Exposure ≤ 35%; single trade ≤ 10% of portfolio value.
-- Slippage ≤ 50 bps; venue liquidity ≥ USD 10,000.
-- Oracle age ≤ 3,600 seconds; valid, positive, completed price round.
-- Verified backing ≥ 100%; proposal confidence ≥ 65%.
-- Available balances, supply-risk and oracle/quote consistency.
+The JavaScript chaincode records batch registration, custody, certification,
+tokenization requests and garment provenance. Certification requires an X509
+`sfc.role=certifier` attribute; COT acknowledgment requires `sfc.role=bridge`.
+The live runner generates its own CA identities, wallet and connection profile.
 
-Simulation checks exact calldata, revert behavior, balance deltas, gas, exposure
-and backing. The executor revalidates a fresh snapshot before signing, records an
-audit trail and verifies confirmation effects. Local market contracts also enforce
-freshness, slippage, deadline, exposure and trade-size limits at inclusion.
-Execution requires explicit configuration and only supports local test chains.
+[Chaincode](fabric/chaincode/supplychain/index.js) · [API](fabric/application/api-gateway.js)
 
-Each decision records the canonical Keccak-256 state hash, risk, proposal, policy,
-simulation and transaction. Revalidated execution snapshots are preserved too.
+## Bridge
 
-## Verification
+[VerifiedRelay](bridging/verified-relay.js) transports approved COT events and
+recovers already-mined receipts when Fabric acknowledgment fails. The existing
+[NFT and recycling handlers](bridging/bridge.js) connect garment records with
+Ethereum events. NFT recovery is not the same protocol as COT receipt reconciliation.
+Legacy state-channel and sidechain experiments are outside the verified issuance path.
 
-Node 22+, Python 3.11+, uv and Docker are required for the full local checks.
-Install JavaScript dependencies with `npm ci` in `ethereum`, `bridging`,
-`fabric/application`, `fabric/chaincode/supplychain` and `frontend`.
+## Testing
+
+[CI](.github/workflows/verify.yml) checks Solidity, Fabric, bridge/Gateway/oracle,
+backend, frontend, agent/policy boundaries, dependency audits, Compose and live Fabric E2E.
+The badge reflects the actual workflow state.
 
 ```sh
 npm test --prefix ethereum
 npm test --prefix fabric/chaincode/supplychain
 node --test scripts/dependency-compat.test.cjs scripts/fabric-gateway.test.cjs scripts/verified-boundaries.test.cjs
-npm test --prefix fabric/application -- --runInBand
-npm run lint --prefix fabric/application
 agent/.venv/bin/python -m pytest agent/tests -q
-node scripts/local-e2e.cjs
-node scripts/fabric-live-e2e.cjs
-node scripts/audit-dependencies.cjs
+agent/.venv/bin/sfc benchmark
 ```
 
-The live runner downloads pinned official Fabric tools, starts an isolated
-two-organization CA network, deploys the chaincode and tests committed events
-through Ethereum and guarded execution. It refuses to reuse existing Fabric
-containers and removes only its own resources. Allow several minutes and keep
-ports 7050–9051, 18546 and 18547 free.
+The recorded adversarial corpus contains 10 scenarios repeated five times:
+90% schema-valid proposals, 100% safe outcomes and 100% correct decisions.
+Deliberately invalid output explains the validity score. This finite suite is not
+a universal proof or an unmeasured model comparison.
 
-Ten recorded adversarial scenarios, repeated five times, include stale/missing
-oracle data, supply shock, invalid reserves, replay, low liquidity, extreme price,
-hallucinated actions and excessive trades. The recorded corpus measures **90%
-valid action outputs, 100% safe outcomes and 100% correct decisions**. Deliberately
-invalid output explains the validity score. These are finite-suite measurements,
-not a universal proof or an unmeasured comparison between models. Local model
-benchmarking is available separately.
+## Bounded Agent Extension
 
-[CI](.github/workflows/verify.yml) runs Solidity, Fabric, bridge, backend, frontend,
-agent, policy, security invariants, dependency audits, Compose and both E2E paths.
-The badge reports the actual GitHub workflow state.
+The asset infrastructure also supports two read-only/proposal agents with an
+optional local Ollama adapter:
 
-## Design and scope
+**Agent proposes → deterministic policy authorizes → simulator verifies → isolated executor executes.**
 
-[Architecture](ARCHITECTURE.md) explains the permissioned custody/public settlement
-split. [Threat model](THREAT_MODEL.md) documents compromised models, prompt
-injection, oracle manipulation, replay, desynchronization and key compromise.
-Attestor trust and executor-key theft remain outside the policy engine's protection.
-The demo market and oracle are test fixtures, not a production exchange or live
-Chainlink feed. Physical redemption and permissionless cross-chain proofs remain
-future lifecycle work.
+Models receive no signing keys, arbitrary destinations or transaction-building
+tools. Strict schemas permit only HOLD, BUY_COT and SELL_COT. Policy enforces
+exposure, trade size, backing, liquidity, confidence and oracle freshness.
+Simulation is the default; execution requires explicit local test-chain configuration.
+Canonical state hashes and audit records preserve each decision.
 
-[Project direction and completion record](docs/PROJECT_DIRECTION.md) preserve the
-accepted transformation. [Archived prototype documentation](docs/LEGACY_SETUP.md)
-retains the original detailed setup and experiments.
+[Agent documentation](agent/README.md) · [Agent simulation/rejection video](docs/assets/demo.mp4)
+
+## Repository Structure
+
+```text
+fabric/       Permissioned chaincode, CA/network setup and API
+ethereum/     Asset contracts, local demo contracts and Solidity tests
+bridging/     Verified COT relay, NFT handlers and oracle validation
+agent/        Two agents, strict schemas, deterministic policy, simulation and evals
+frontend/     Existing supply-chain interface
+scripts/      E2E harnesses, dependency audits and demo rendering
+docs/         Architecture assets, recordings and contributor documentation
+```
+
+## Development / Dependency Notes
+
+For dependency management, compatibility notes, environment variables, API setup,
+proxy configuration and optional services, see [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
+[Project direction](docs/PROJECT_DIRECTION.md) records the accepted scope and verified milestones.

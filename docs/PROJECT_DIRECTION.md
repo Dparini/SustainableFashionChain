@@ -110,3 +110,21 @@ fixture. Documentation, benchmark output and demo assets correspond to tested co
   prepared GitHub description/topics personally. Local-model quality benchmarks require
   an installed model/server; only recorded adversarial corpus results are claimed.
   Real-money trading, physical redemption and production deployment remain outside scope.
+
+## Presentation refinement
+
+- Lead with the existing physical cotton → Fabric → backed COT → garment →
+  ProductNFT → recycling lifecycle. Keep the implemented agent layer as a bounded
+  extension; no further feature expansion is planned.
+- Use technical, general positioning without naming prospective employers or
+  recruiting targets in documentation, commits or metadata.
+- README has a real Demo anchor, lifecycle GIF/video, security model and reproducible
+  E2E commands. Detailed configuration and dependency notes live in DEVELOPMENT.md.
+- Updated description/topics are prepared in .github/repository-metadata.json.
+  The user's earlier choice to apply GitHub metadata personally remains in effect.
+
+The scope is now three milestones: presentation of the asset lifecycle, defensible
+blockchain boundaries, and the small bounded agent extension. The backing/replay/
+oracle controls and agent package already exist; this refinement demonstrates
+NFT/recycling through existing bridge handlers rather than adding agent features.
+No further feature expansion is planned beyond verification and maintenance.

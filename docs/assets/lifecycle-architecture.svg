@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1120 510" role="img" aria-labelledby="title desc">
+<title id="title">Verified supply-chain state across Fabric and Ethereum</title>
+<desc id="desc">Physical cotton is recorded and certified on Fabric. A separate attestor registers backing while a bridge relays approved issuance to Ethereum. Garment provenance links to ProductNFT; recycling events return to Fabric.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#48dfb0"/></marker></defs>
+<rect width="1120" height="510" rx="20" fill="#0a1220"/>
+<g font-family="system-ui,sans-serif" fill="#e6edf3">
+<text x="40" y="48" font-size="26" font-weight="700">Physical provenance → verifiable onchain assets</text>
+<text x="40" y="77" font-size="15" fill="#96a6bb">Permissioned custody · Separate backing authority · Public verification</text>
+<rect x="40" y="108" width="290" height="300" rx="14" fill="#111e30" stroke="#3d5574"/>
+<text x="62" y="142" font-size="20" font-weight="700">Hyperledger Fabric</text>
+<text x="62" y="171" font-size="14" fill="#48dfb0">ORGANIZATIONAL IDENTITIES</text>
+<text x="62" y="211" font-size="17">Cotton batch + custody</text>
+<text x="62" y="240" font-size="17">Certification hash + tx ID</text>
+<text x="62" y="288" font-size="17">Garment + source batches</text>
+<text x="62" y="318" font-size="17">NFT ID + recycling status</text>
+<text x="62" y="378" font-size="14" fill="#96a6bb">Authoritative recorded provenance</text>
+<rect x="423" y="178" width="244" height="107" rx="14" fill="#111e30" stroke="#48dfb0"/>
+<text x="448" y="212" font-size="20" font-weight="700">Cross-chain bridge</text>
+<text x="448" y="239" font-size="14">Approved event → backed mint</text>
+<text x="448" y="265" font-size="14">Replay / receipt reconciliation</text>
+<rect x="423" y="111" width="244" height="43" rx="10" fill="#172b38"/>
+<text x="447" y="139" font-size="16">Separate backing attestor</text>
+<rect x="760" y="108" width="320" height="300" rx="14" fill="#111e30" stroke="#3d5574"/>
+<text x="784" y="142" font-size="20" font-weight="700">Ethereum</text>
+<text x="784" y="171" font-size="14" fill="#48dfb0">PUBLIC ASSET STATE</text>
+<text x="784" y="211" font-size="17">CottonReserveRegistry</text>
+<text x="784" y="240" font-size="17">CotToken · 1 COT = 1 kg claim</text>
+<text x="784" y="288" font-size="17">ProductNFT · garment ownership</text>
+<text x="784" y="318" font-size="17">ProductRecycled event</text>
+<text x="784" y="378" font-size="14" fill="#96a6bb">Supply ≤ attested verified capacity</text>
+<g stroke="#48dfb0" fill="none" stroke-width="2" marker-end="url(#arrow)">
+<path d="M330 225H423"/><path d="M667 225H760"/>
+<path d="M667 132H716V198H760"/>
+<path d="M760 345H706V444H186V408"/>
+</g>
+<text x="346" y="208" font-size="12" fill="#96a6bb">event</text>
+<text x="451" y="467" font-size="15" fill="#48dfb0">NFT acknowledgment + recycling event → Fabric</text>
+<text x="40" y="493" font-size="13" fill="#96a6bb">Physical truth remains an inspector/attestor assumption. Manufacturing and recycling do not automatically redeem COT.</text>
+</g></svg>

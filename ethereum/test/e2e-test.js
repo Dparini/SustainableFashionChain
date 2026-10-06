@@ -14,6 +14,7 @@ const addressFile = process.env.CONTRACT_ADDRESSES_FILE || new URL('../contract-
 const addresses = JSON.parse(readFileSync(addressFile, 'utf8'));
 const cotTokenAbi = JSON.parse(readFileSync(new URL('../artifacts/contracts/CotToken.sol/CotToken.json', import.meta.url), 'utf8')).abi;
 const productNFTAbi = JSON.parse(readFileSync(new URL('../artifacts/contracts/ProductNFT.sol/ProductNFT.json', import.meta.url), 'utf8')).abi;
+const reserveAbi = JSON.parse(readFileSync(new URL('../artifacts/contracts/CottonReserveRegistry.sol/CottonReserveRegistry.json', import.meta.url), 'utf8')).abi;
 const batchId = `COTTON-${Date.now()}`;
 const productId = `SHIRT-${Date.now()}`;
 const cottonAmount = 3n;
@@ -70,6 +71,22 @@ describe('Live supply chain, tokenization, NFT and recycling flow', function () 
   });
 
   it('mints CotTokens after Fabric approval and records the receipt on Fabric', async () => {
+    // The live API suite uses the same certification/backing boundary as the demo.
+    if (!process.env.SFC_E2E_ATTESTOR_KEY && process.env.SFC_E2E_ATTESTOR_INDEX === undefined) {
+      throw new Error('Configure SFC_E2E_ATTESTOR_KEY or an explicit local SFC_E2E_ATTESTOR_INDEX.');
+    }
+    if (process.env.SFC_E2E_ATTESTOR_INDEX !== undefined &&
+        ![1337n, 31337n].includes((await provider.getNetwork()).chainId)) {
+      throw new Error('Unlocked attestor indexes are restricted to local test chains.');
+    }
+    await api.post(`/batches/${batchId}/verify`, { certificationHash: ethers.id(`e2e-inspection:${batchId}`) });
+    const verified = (await api.get(`/batches/${batchId}`)).data;
+    const attestor = process.env.SFC_E2E_ATTESTOR_KEY
+      ? new ethers.Wallet(process.env.SFC_E2E_ATTESTOR_KEY, provider)
+      : await provider.getSigner(Number(process.env.SFC_E2E_ATTESTOR_INDEX));
+    const reserve = new ethers.Contract(await cotToken.reserveRegistry(), reserveAbi, attestor);
+    await (await reserve.attestReserve(ethers.id(batchId), ethers.parseEther('10'),
+      verified.certificationHash, '0x' + verified.fabricVerificationTxId)).wait();
     const balanceBefore = await cotToken.balanceOf(tokenRecipientAddress);
     const requested = await api.post('/tokenize', {
       batchID: batchId, quantity: Number(cottonAmount), warehouseID: 'E2E-WH',

@@ -45,6 +45,11 @@ async function rpcCall(method, params = []) {
   const setup = await command(process.execPath, [hardhat, 'run', 'scripts/demo-setup.js', '--network', 'localhost'],
     { cwd: path.join(root, 'ethereum'), env: { ...process.env, ETHEREUM_PROVIDER_URL: rpc, SFC_RPC_URL: rpc, SFC_DEMO_DIR: directory } });
   assert.equal(setup.code, 0, setup.output);
+  const lifecycle = JSON.parse(await readFile(path.join(directory, 'lifecycle.json'), 'utf8'));
+  assert.equal(lifecycle.recycling.fabricProduct.status, 'RECYCLING_INITIATED');
+  assert.equal(lifecycle.recycling.ethereumRecycled, true);
+  assert.match(lifecycle.nft.mintTx, /^0x[0-9a-f]{64}$/);
+  console.log('✓ Garment provenance → ProductNFT mint → Ethereum recycling → Fabric acknowledgment');
   console.log(process.env.SFC_LIVE_FABRIC_CONFIG ? '✓ Live Fabric commit/event → attestation → relay → backed COT; replay rejected/reconciled' : '✓ Real chaincode fixture → attestation → relay → backed COT; replay rejected/reconciled');
   const config = path.join(directory, 'local.json');
   const audit = path.join(directory, 'audit.jsonl');
@@ -93,7 +98,7 @@ async function rpcCall(method, params = []) {
       capturedAt: new Date().toISOString(), scope: process.env.SFC_LIVE_FABRIC_CONFIG ? 'Local Ethereum and live two-organization Fabric network' : 'Local Ethereum and in-memory Fabric chaincode fixture',
       setup: setup.output.replaceAll(directory, '<generated-demo-directory>'),
       fabric: JSON.parse(await readFile(path.join(directory, 'fabric-fixture.json'), 'utf8')),
-      simulation: sim, rejection: rejected, invalid, execution: executed, stale,
+      lifecycle, simulation: sim, rejection: rejected, invalid, execution: executed, stale,
     }, null, 2));
   }
 })().catch(error => { console.error(error); process.exitCode = 1; }).finally(async () => {
