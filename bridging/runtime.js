@@ -1,6 +1,6 @@
 const path = require('node:path');
 const fs = require('node:fs');
-const OptimizedBridge = require('./bridge');
+const VerifiedBridge = require('./bridge');
 
 function createConfiguredBridge() {
   const file = process.env.BRIDGE_CONFIG;
@@ -9,7 +9,6 @@ function createConfiguredBridge() {
     ethereumRpcUrl: process.env.ETHEREUM_PROVIDER_URL,
     ethereumPrivateKey: process.env.ETHEREUM_PRIVATE_KEY,
     ethereumMnemonic: process.env.ETHEREUM_MNEMONIC,
-    sidechainBridgeAddress: process.env.SIDECHAIN_BRIDGE_ADDRESS,
     cotTokenAddress: process.env.COT_TOKEN_ADDRESS,
     productNFTAddress: process.env.PRODUCT_NFT_ADDRESS,
     abiDir: process.env.BRIDGE_ABI_DIR,
@@ -26,10 +25,10 @@ function createConfiguredBridge() {
   config.fabricUserName ||= 'admin';
   config.fabricChannelName ||= 'sustainchannel';
   config.fabricContractName ||= 'supplychain';
-  const required = ['ethereumRpcUrl', 'sidechainBridgeAddress', 'cotTokenAddress', 'productNFTAddress', 'abiDir', 'fabricConnectionProfilePath', 'fabricWalletPath'];
+  const required = ['ethereumRpcUrl', 'cotTokenAddress', 'productNFTAddress', 'abiDir', 'fabricConnectionProfilePath', 'fabricWalletPath'];
   const missing = required.filter(key => !config[key]);
   if (!config.ethereumPrivateKey && !config.ethereumMnemonic) missing.push('ethereumPrivateKey or ethereumMnemonic');
   if (missing.length) throw new Error(`Missing bridge configuration: ${missing.join(', ')}. Set BRIDGE_CONFIG to a JSON configuration file or provide the corresponding environment variables.`);
-  return new OptimizedBridge(config);
+  return new VerifiedBridge(config);
 }
 module.exports = { createConfiguredBridge };

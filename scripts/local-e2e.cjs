@@ -1,5 +1,6 @@
 // Reproducible integration: real chaincode fixture + relay + local Ethereum + Python.
 const { spawn } = require('node:child_process');
+const net = require('node:net');
 const { mkdtemp, readFile, writeFile, rm, mkdir } = require('node:fs/promises');
 const { tmpdir } = require('node:os');
 const path = require('node:path');
@@ -18,11 +19,13 @@ function command(executable, args, options = {}) {
     proc.stdout.on('data', d => { output += d; });
     proc.stderr.on('data', d => { output += d; });
     proc.on('error', reject);
-    proc.on('exit', code => resolve({ code, output }));
+    const timer = setTimeout(() => { proc.kill('SIGTERM'); reject(new Error(`Command timed out: ${executable}`)); }, 120000);
+    proc.on('exit', code => { clearTimeout(timer); resolve({ code, output }); });
+    proc.once('error', () => clearTimeout(timer));
   });
 }
 async function rpcCall(method, params = []) {
-  const response = await fetch(rpc, { method: 'POST', headers: { 'content-type': 'application/json' },
+  const response = await fetch(rpc, { signal: AbortSignal.timeout(5000), method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
   const payload = await response.json();
   if (payload.error) throw new Error(JSON.stringify(payload.error));
@@ -30,6 +33,13 @@ async function rpcCall(method, params = []) {
 }
 
 (async () => {
+  if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw new Error('INVALID_TEST_PORT');
+  // Never mistake another service for this harness's Ethereum process.
+  await new Promise((resolve, reject) => {
+    const probe = net.createServer();
+    probe.once('error', () => reject(new Error(`TEST_PORT_IN_USE: ${port}`)));
+    probe.listen(port, '127.0.0.1', () => probe.close(resolve));
+  });
   directory = await mkdtemp(path.join(tmpdir(), 'sfc-e2e-'));
   node = spawn(process.execPath, [hardhat, 'node', '--hostname', '127.0.0.1', '--port', String(port)],
     { cwd: path.join(root, 'ethereum'), stdio: ['ignore', 'ignore', 'pipe'] });

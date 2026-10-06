@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 const require = createRequire(import.meta.url);
 const SupplyChain = require('../../fabric/chaincode/supplychain');
 const { VerifiedRelay } = require('../../bridging/verified-relay');
-const OptimizedBridge = require('../../bridging/bridge');
+const VerifiedBridge = require('../../bridging/bridge');
 const { ethers } = await network.create();
 
 const [attestor, relaySigner, executor] = await ethers.getSigners();
@@ -128,7 +128,7 @@ if (liveConfig) {
 }
 const nft = deployed.ProductNFT;
 await (await nft.grantRole(await nft.MINTER_ROLE(), relaySigner.address)).wait();
-const nftBridge = new OptimizedBridge({ requiredConfirmations: 1 });
+const nftBridge = new VerifiedBridge({ requiredConfirmations: 1 });
 nftBridge.productNFT = nft.connect(relaySigner);
 nftBridge.fabricContract = { submitTransaction: submit };
 nftBridge.wallet = relaySigner;

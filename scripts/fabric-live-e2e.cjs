@@ -123,8 +123,9 @@ async function rewrite(directory) {
   const config = path.join(runtime,'fabric-config.json');
   await fs.writeFile(config,JSON.stringify({profilePath:profile,walletPath:wallet,channel:'sfcportfolio',chaincode:'supplychain',
     apiUrl:'http://127.0.0.1:18547/api/v1'}),{mode:0o600});
+  const readerKey = crypto.randomBytes(32).toString('hex');
   api = spawn(process.execPath,['fabric/application/app.js'],{cwd:root,env:{...env,
-    FABRIC_CONNECTION_PROFILE:profile,FABRIC_WALLET_PATH:wallet,FABRIC_IDENTITY:'producer',FABRIC_CHANNEL:'sfcportfolio',API_PORT:'18547',START_BRIDGE:'false'},
+    FABRIC_CONNECTION_PROFILE:profile,FABRIC_WALLET_PATH:wallet,FABRIC_IDENTITY:'producer',FABRIC_CHANNEL:'sfcportfolio',API_PORT:'18547',API_READ_KEY:readerKey,API_ADMIN_KEY:'',ADMIN_USERNAME:'',ADMIN_PASSWORD:'',JWT_SECRET:crypto.randomBytes(32).toString('hex'),START_BRIDGE:'false'},
     stdio:['ignore','ignore','pipe']});
   let apiError = '';api.stderr.on('data',d=>{apiError+=d;});
   for (let attempt=0;;attempt++) {
@@ -133,7 +134,7 @@ async function rewrite(directory) {
     if(attempt>=100 || api.exitCode!==null)throw new Error('LIVE_API_START_FAILED:'+apiError.slice(-2000));
     await new Promise(resolve=>setTimeout(resolve,100));
   }
-  const auth=await fetch('http://127.0.0.1:18547/api/v1/token',{method:'POST',headers:{'x-api-key':'test-api-key'}});
+  const auth=await fetch('http://127.0.0.1:18547/api/v1/token',{method:'POST',headers:{'x-api-key':readerKey}});
   assert.equal(auth.status,200);
   const token=(await auth.json()).token;
   console.log('Running live Fabric → emitted event → reserve attestation → Ethereum → guarded agent E2E...');

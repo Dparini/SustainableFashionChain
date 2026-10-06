@@ -11,7 +11,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 
 // JWT secret (in a real application, this would be an environment variable)
-const JWT_SECRET = process.env.JWT_SECRET || 'sustainablefashionchain-jwt-secret';
+const JWT_SECRET = require('../config/auth').jwtSecret('users');
 const JWT_EXPIRY = '24h';
 const REFRESH_TOKEN_EXPIRY = '7d';
 

@@ -13,7 +13,7 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 
 // In a production environment, use environment variables for secrets
-const JWT_SECRET = process.env.JWT_SECRET || 'sustainablefashionchain-secret-key';
+const JWT_SECRET = require('../config/auth').jwtSecret('users');
 const JWT_EXPIRES_IN = '24h';
 
 // User roles and their hierarchy

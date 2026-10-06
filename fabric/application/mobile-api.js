@@ -22,7 +22,7 @@ const bridge = require('../../bridging/bridge');
 const mobileApiRouter = express.Router();
 
 // Load environment variables
-const JWT_SECRET = process.env.JWT_SECRET || 'sustainablefashionchain-mobile-secret';
+const JWT_SECRET = require('./config/auth').jwtSecret('mobile');
 const JWT_EXPIRY = '7d'; // Mobile tokens last longer
 const ETHEREUM_PROVIDER_URL = process.env.ETHEREUM_PROVIDER_URL || 'http://localhost:8545';
 

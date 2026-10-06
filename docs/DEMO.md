@@ -1,6 +1,8 @@
 # Reproduce the demonstration
 
-The cotton lifecycle and agent videos are each 80 seconds long. Both are rendered
+The cotton lifecycle and agent videos are each exactly 80 seconds long, at 1280×720.
+They use a consistent chapter layout, progressive output reveal, short transitions
+and a timeline. The lifecycle opens with the architecture and verified totals. Both are rendered
 from real test output,
 with an explicitly labelled in-memory Fabric chaincode fixture and a real local
 Ethereum chain. They contain no model benchmark or production trading claim.
@@ -24,7 +26,7 @@ a garment NFT through the bridge, runs exact
 balances and rejects stale oracle data. It stops its own process afterward.
 
 The capture produces `recording.json`. The renderer creates
-`cotton-lifecycle.mp4` and `cotton-lifecycle.gif` for the full asset lifecycle;
+`cotton-lifecycle.mp4`, `cotton-lifecycle.gif` and `lifecycle-poster.png` for the full asset lifecycle;
 `demo.mp4`, `terminal-demo.gif` and `demo-poster.png` for the agent extension.
 Agent video timing is 12 seconds
 architecture, 14 verification, 14 bridge, 12 proposal, 10 policy/simulation,

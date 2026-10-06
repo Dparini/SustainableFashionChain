@@ -22,10 +22,10 @@ def decide(raw_state, raw_proposal=None, *, engine=None, simulator=None, model="
             stage = "SIMULATION_FAILED"
             simulation = simulator.simulate(action, state, risk)
         return record(state, risk, action, policy, simulation, model=model)
-    except (ValidationError, ValueError, ArithmeticError) as exc:
+    except (ValidationError, ValueError, ArithmeticError):
         code = stage
         return record(raw_state, risk, action, policy, simulation,
-                      error={"code": code, "details": "Schema validation failed; no transaction was built."}, model=model)
+                      error={"code": code, "details": "Simulation rejected the proposed effects." if stage == "SIMULATION_FAILED" else "Schema validation failed; no transaction was built."}, model=model)
     except Exception as exc:
         return record(raw_state, risk, action, policy, simulation,
                       error={"code": stage, "details": type(exc).__name__}, model=model)

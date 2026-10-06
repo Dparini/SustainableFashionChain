@@ -7,6 +7,22 @@ function transactionTimestamp(ctx) {
     return (BigInt(seconds.toString()) * 1000n + BigInt(Math.floor(nanos / 1000000))).toString();
 }
 
+async function queryRecords(ctx, predicate) {
+    const iterator = await ctx.stub.getStateByRange('', '');
+    const records = [];
+    try {
+        for (let result = await iterator.next(); !result.done; result = await iterator.next()) {
+            let record;
+            try { record = JSON.parse(result.value.value.toString('utf8')); }
+            catch { throw new Error(`INVALID_LEDGER_RECORD: ${result.value.key}`); }
+            if (predicate(record)) records.push(record);
+        }
+    } finally {
+        await iterator.close();
+    }
+    return JSON.stringify(records);
+}
+
 class SupplyChainContract extends Contract {
 
     async initLedger(ctx) {
@@ -68,13 +84,15 @@ class SupplyChainContract extends Contract {
 
         const product = JSON.parse(productAsBytes.toString());
         if (product.batchId) throw new Error("USE_COTTON_STATE_MACHINE");
+        if (product.batchIDs || product.nftTokenId) throw new Error("USE_PRODUCT_STATE_MACHINE");
         product.status = newStatus;
 
         if (additionalData) {
             const dataObj = JSON.parse(additionalData);
             const reserved = new Set(['batchId', 'quantity', 'quantityKg', 'rwaStatus', 'certificationHash',
                 'fabricVerificationTxId', 'verifiedAt', 'verifiedBy', 'type', 'id', 'tokenizationId',
-                'pendingTokenizationId', 'currentCustody', 'producer', 'farmId']);
+                'pendingTokenizationId', 'currentCustody', 'producer', 'farmId', 'nftTokenId',
+                'batchIDs', 'manufacturer', 'status', 'history', 'custodyHistory', 'statusHistory']);
             if (Object.keys(dataObj).some(key => reserved.has(key))) throw new Error('PROTECTED_RWA_FIELDS');
             // Merge application metadata only.
             Object.keys(dataObj).forEach(key => {
@@ -273,7 +291,7 @@ class SupplyChainContract extends Contract {
 
         // Validate request is in PENDING status
         if (request.status !== 'PENDING') {
-            throw new Error(`Tokenization request ${requestId} is not in PENDING status`);
+            throw new Error('TOKENIZATION_NOT_PENDING');
         }
 
         // Update request status
@@ -387,6 +405,8 @@ class SupplyChainContract extends Contract {
 
     // Mint NFT for a product
     async mintNFT(ctx, productId, nftTokenId) {
+        if (!ctx.clientIdentity.assertAttributeValue('sfc.role', 'bridge')) throw new Error('BRIDGE_REQUIRED');
+        if (!/^[1-9][0-9]*$/.test(nftTokenId)) throw new Error('INVALID_NFT_TOKEN_ID');
 
         const productAsBytes = await ctx.stub.getState(productId);
         if (!productAsBytes || productAsBytes.length === 0) {
@@ -396,9 +416,8 @@ class SupplyChainContract extends Contract {
         const product = JSON.parse(productAsBytes.toString());
 
         // Validate product hasn't already been minted as NFT
-        if (product.nftTokenId) {
-            throw new Error(`Product ${productId} already has an NFT token ID`);
-        }
+        if (product.nftTokenId === nftTokenId) return JSON.stringify(product);
+        if (product.nftTokenId || product.status !== 'NFT_MINT_PENDING') throw new Error('NFT_ACKNOWLEDGMENT_MISMATCH');
 
         // Update product with NFT token ID
         product.nftTokenId = nftTokenId;
@@ -418,6 +437,24 @@ class SupplyChainContract extends Contract {
 
         await ctx.stub.putState(productId, Buffer.from(JSON.stringify(product)));
 
+        return JSON.stringify(product);
+    }
+
+    // Only the bridge can acknowledge confirmed Ethereum recycling; retries are idempotent.
+    async recordRecycling(ctx, productId, nftTokenId, ethereumTx) {
+        if (!ctx.clientIdentity.assertAttributeValue('sfc.role', 'bridge')) throw new Error('BRIDGE_REQUIRED');
+        if (!/^0x[0-9a-fA-F]{64}$/.test(ethereumTx)) throw new Error('INVALID_ETHEREUM_TRANSACTION');
+        const bytes = await ctx.stub.getState(productId);
+        if (!bytes || !bytes.length) throw new Error('PRODUCT_NOT_FOUND');
+        const product = JSON.parse(bytes.toString());
+        if (!product.nftTokenId || product.nftTokenId !== nftTokenId) throw new Error('NFT_ACKNOWLEDGMENT_MISMATCH');
+        if (product.recyclingTx === ethereumTx) return JSON.stringify(product);
+        if (product.status !== 'TOKENIZED' || product.recyclingTx) throw new Error('INVALID_RECYCLING_TRANSITION');
+        product.status = 'RECYCLING_INITIATED';
+        product.recyclingTx = ethereumTx;
+        product.history.push({ type: 'RecyclingInitiated', actor: ctx.clientIdentity.getID(),
+            timestamp: transactionTimestamp(ctx), details: ethereumTx });
+        await ctx.stub.putState(productId, Buffer.from(JSON.stringify(product)));
         return JSON.stringify(product);
     }
 
@@ -489,95 +526,24 @@ class SupplyChainContract extends Contract {
     async queryProduct(ctx, id) {
         const productAsBytes = await ctx.stub.getState(id);
         if (!productAsBytes || productAsBytes.length === 0) {
-            throw new Error(`Product ${id} does not exist`);
+            throw new Error('PRODUCT_NOT_FOUND');
         }
         return productAsBytes.toString();
     }
 
     // Query cotton batches by type
     async queryProductsByType(ctx, type) {
-        const startKey = '';
-        const endKey = '';
-        const allResults = [];
-
-        const iterator = await ctx.stub.getStateByRange(startKey, endKey);
-        let result = await iterator.next();
-
-        while (!result.done) {
-            const strValue = Buffer.from(result.value.value.toString()).toString('utf8');
-            let record;
-            try {
-                record = JSON.parse(strValue);
-            } catch (err) {
-                console.log(err);
-                record = strValue;
-            }
-
-            if (record.type === type) {
-                allResults.push(record);
-            }
-            result = await iterator.next();
-        }
-
-        return JSON.stringify(allResults);
+        return queryRecords(ctx, record => record.type === type);
     }
 
     // Query all batches
     async queryAllBatches(ctx) {
-        const startKey = '';
-        const endKey = '';
-        const allResults = [];
-
-        const iterator = await ctx.stub.getStateByRange(startKey, endKey);
-        let result = await iterator.next();
-
-        while (!result.done) {
-            const strValue = Buffer.from(result.value.value.toString()).toString('utf8');
-            let record;
-            try {
-                record = JSON.parse(strValue);
-            } catch (err) {
-                console.log(err);
-                record = strValue;
-            }
-
-            // Only include cotton/silk batches
-            if (record.type === 'cotton' || record.type === 'silk') {
-                allResults.push(record);
-            }
-            result = await iterator.next();
-        }
-
-        return JSON.stringify(allResults);
+        return queryRecords(ctx, record => ['cotton', 'silk'].includes(record.type));
     }
 
     // Query all products
     async queryAllProducts(ctx) {
-        const startKey = '';
-        const endKey = '';
-        const allResults = [];
-
-        const iterator = await ctx.stub.getStateByRange(startKey, endKey);
-        let result = await iterator.next();
-
-        while (!result.done) {
-            const strValue = Buffer.from(result.value.value.toString()).toString('utf8');
-            let record;
-            try {
-                record = JSON.parse(strValue);
-            } catch (err) {
-                console.log(err);
-                record = strValue;
-            }
-
-            // Only include finished products
-            if (record.type !== 'cotton' && record.type !== 'silk') {
-                allResults.push(record);
-            }
-            result = await iterator.next();
-        }
-
-        return JSON.stringify(allResults);
+        return queryRecords(ctx, record => Boolean(record.type) && !['cotton', 'silk'].includes(record.type));
     }
 
     // Get tokenization request by ID
@@ -591,60 +557,12 @@ class SupplyChainContract extends Contract {
 
     // Query all pending tokenization requests
     async queryPendingTokenizationRequests(ctx) {
-        const startKey = '';
-        const endKey = '';
-        const allResults = [];
-
-        const iterator = await ctx.stub.getStateByRange(startKey, endKey);
-        let result = await iterator.next();
-
-        while (!result.done) {
-            const strValue = Buffer.from(result.value.value.toString()).toString('utf8');
-            let record;
-            try {
-                record = JSON.parse(strValue);
-            } catch (err) {
-                console.log(err);
-                record = strValue;
-            }
-
-            // Include only tokenization requests with PENDING status
-            if (record.status === 'PENDING' && record.batchId) {
-                allResults.push(record);
-            }
-            result = await iterator.next();
-        }
-
-        return JSON.stringify(allResults);
+        return queryRecords(ctx, record => record.status === 'PENDING' && Boolean(record.id && record.batchId) && !record.type);
     }
 
     // Query all approved tokenization requests
     async queryApprovedTokenizationRequests(ctx) {
-        const startKey = '';
-        const endKey = '';
-        const allResults = [];
-
-        const iterator = await ctx.stub.getStateByRange(startKey, endKey);
-        let result = await iterator.next();
-
-        while (!result.done) {
-            const strValue = Buffer.from(result.value.value.toString()).toString('utf8');
-            let record;
-            try {
-                record = JSON.parse(strValue);
-            } catch (err) {
-                console.log(err);
-                record = strValue;
-            }
-
-            // Include only tokenization requests with APPROVED status
-            if (record.status === 'APPROVED' && record.batchId) {
-                allResults.push(record);
-            }
-            result = await iterator.next();
-        }
-
-        return JSON.stringify(allResults);
+        return queryRecords(ctx, record => record.status === 'APPROVED' && Boolean(record.id && record.batchId) && !record.type);
     }
 }
 

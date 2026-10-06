@@ -46,138 +46,110 @@ test('backend: Nodemailer renders mail without contacting an SMTP server', async
   assert.match(mail.message.toString(), /Local message/);
 });
 
-test('bridge: Ethers 6 signs validator hashes and records receipt hashes', async () => {
-  const requirePackage = from('bridging');
-  const { ethers } = requirePackage('ethers');
+test('bridge: retries failed work without losing concurrent arrivals or claiming success', async () => {
   const Bridge = require('../bridging/bridge');
   const bridge = new Bridge();
-  const wallet = ethers.Wallet.createRandom();
-  bridge.validators = [{ privateKey: wallet.privateKey }];
-  const hash = ethers.id('local validator test');
-  const [signature] = await bridge.getValidatorSignatures(hash);
-  assert.equal(ethers.verifyMessage(ethers.getBytes(hash), signature), wallet.address);
-  bridge.wallet = wallet;
-  let submitted;
-  bridge.fabricContract = { async submitTransaction(...args) { submitted = args; } };
-  bridge.cotToken = {
-    async eventIdFor() { return hash; },
-    async processedEvents() { return false; },
-    async mintVerifiedBatch(txId, id, quantity, warehouse, recipient) {
-      assert.equal(quantity, 1500000000000000000n);
-      assert.equal(recipient, wallet.address);
-      return { async wait() { return { hash, status: 1 }; } };
-    },
-  };
-  await bridge.processTokenizationOnMainnet({ fabricTxId: 'a'.repeat(64), batchId: 'batch', quantity: '1.5', warehouseId: 'warehouse', requestId: 'request' });
-  assert.deepEqual(submitted, ['completeTokenization', 'request', hash]);
-
-  const iface = new ethers.Interface(['event ProductMinted(uint256 tokenId)']);
-  const encoded = iface.encodeEventLog(iface.getEvent('ProductMinted'), [42n]);
-  const event = iface.parseLog(encoded);
-  bridge.productNFT = { async mintProduct(...args) {
-    assert.deepEqual(args, [wallet.address, 'product', 'finished', 'maker',
-      'ipfs://product', 'ipfs://product', []]);
-    return { async wait() { return { hash, logs: [event] }; } };
-  } };
-  await bridge.processNFTMintingTransaction({ productId: 'product', fabricProductId: 'product',
-    productType: 'finished', manufacturer: 'maker', metadataURI: 'ipfs://product', cottonBatchIds: [] }, 1, []);
-  assert.deepEqual(submitted, ['mintNFT', 'product', '42']);
-
-  bridge.queueEthereumToFabricTransaction = (transaction) => { submitted = transaction; };
-  await bridge.handleTokensLocked(wallet.address, ethers.parseEther('1.5'), hash, { log: { transactionHash: hash } });
-  assert.equal(submitted.amount, '1.5');
-  assert.equal(submitted.ethereumTxHash, hash);
-});
-
-test('bridge: a failed batch restores its transactions and preserves new arrivals', async () => {
-  const Bridge = require('../bridging/bridge');
-  const bridge = new Bridge();
-  const original = { id: 'original', type: 'tokenization' };
-  const arriving = { id: 'arriving', type: 'tokenization' };
-  bridge.fabricToEthereumQueue.push(original);
-  bridge.sidechainBridge = { async submitBatch() {
-    bridge.fabricToEthereumQueue.push(arriving);
-    throw new Error('RPC unavailable');
-  } };
-  await bridge.processBatch();
-  assert.deepEqual(bridge.fabricToEthereumQueue, [original, arriving]);
-  assert.equal(bridge.processingBatch, false);
-  assert.equal(bridge.stats.totalBatches, 0);
-});
-
-test('bridge: stale Ethereum nonces reset before retrying a queued batch', async () => {
-  const Bridge = require('../bridging/bridge');
-  const bridge = new Bridge();
-  const transaction = { id: 'retry', type: 'tokenization' };
-  bridge.fabricToEthereumQueue.push(transaction);
-  let resets = 0;
+  const original = { type: 'tokenization', requestId: 'original' };
+  const arriving = { type: 'tokenization', requestId: 'arriving' };
+  bridge.pendingActions.push(original);
+  let resets = 0, failed;
   bridge.transactionSigner = { reset() { resets++; } };
-  bridge.sidechainBridge = { async submitBatch() {
+  bridge.processTokenizationTransaction = async () => {
+    bridge.pendingActions.push(arriving);
     throw Object.assign(new Error('nonce too low'), { code: 'NONCE_EXPIRED' });
-  } };
-  await bridge.processBatch();
-  assert.equal(resets, 1);
-  assert.deepEqual(bridge.fabricToEthereumQueue, [transaction]);
-});
-
-test('bridge: a submitted batch reports failed transactions without claiming success', async () => {
-  const Bridge = require('../bridging/bridge');
-  const bridge = new Bridge();
-  const transaction = { id: 'failed-mint', type: 'tokenization' };
-  bridge.fabricToEthereumQueue.push(transaction);
-  bridge.sidechainBridge = { async submitBatch() {
-    return { async wait() { return { hash: '0x1234', gasUsed: 100000n }; } };
-  } };
-  bridge.processTokenizationTransaction = async () => { throw new Error('mint failed'); };
-  let success = false;
-  let failed;
-  bridge.on('batchProcessed', () => { success = true; });
+  };
   bridge.on('batchProcessingFailed', event => { failed = event; });
   await bridge.processBatch();
-  assert.equal(success, false);
+  assert.deepEqual(bridge.pendingActions, [arriving, original]);
+  assert.equal(resets, 1);
   assert.equal(failed.failedTransactions, 1);
-  assert.deepEqual(bridge.fabricToEthereumQueue, [transaction]);
+  assert.equal(bridge.stats.successfulFabricToEthereumTx, 0);
+  assert.equal(bridge.processingBatch, null);
 });
 
-test('bridge: Gateway chaincode events await processing and decode Uint8Array payloads', async () => {
+test('bridge: concurrent batch calls never process the same work twice', async () => {
   const Bridge = require('../bridging/bridge');
   const bridge = new Bridge();
-  bridge.sidechainBridge = { async on() {} };
-  bridge.productNFT = { async on() {} };
-  bridge.fabricNetwork = { async getChaincodeEvents(name) {
-    assert.equal(name, 'supplychain');
+  bridge.pendingActions.push({ type: 'tokenization' });
+  let processed = 0;
+  bridge.processTokenizationTransaction = async () => { await Promise.resolve(); processed++; };
+  await Promise.all([bridge.processBatch(), bridge.processBatch()]);
+  assert.equal(processed, 1);
+  assert.equal(bridge.getStats().pendingTransactions, 0);
+  assert.throws(() => bridge.queueFabricToEthereumTransaction({ type: 'unknown' }), /UNKNOWN_BRIDGE_ACTION/);
+});
+
+test('bridge: committed event identity overrides untrusted payload identity', async () => {
+  const Bridge = require('../bridging/bridge');
+  const bridge = new Bridge();
+  bridge.productNFT = { async on() {}, filters: { ProductRecycled() {} }, async queryFilter() { return []; } };
+  bridge.fabricNetwork = { async getChaincodeEvents(name, options) {
+    assert.equal(options.startBlock, 0n);
     return (async function* () {
-      yield { eventName: 'TokenizationRequested', transactionId: 'a'.repeat(64), payload: new TextEncoder().encode('{"requestId":"request"}') };
+      yield { eventName: 'TokenizationRequested', transactionId: 'a'.repeat(64), payload: new TextEncoder().encode('{"requestId":"request","fabricTxId":"forged"}') };
     })();
   } };
   let received;
-  bridge.handleFabricTokenizationRequest = async data => { await Promise.resolve(); received = data; };
+  bridge.handleFabricTokenizationRequest = async data => { received = data; };
   await bridge.setupEventListeners();
   await bridge.fabricEventTask;
   assert.deepEqual(received, { requestId: 'request', fabricTxId: 'a'.repeat(64) });
 });
 
-test('bridge: gas statistics use bigint and report zero before any batch', () => {
+test('bridge: event stream failure marks the bridge unhealthy and notifies its runtime', async () => {
   const Bridge = require('../bridging/bridge');
   const bridge = new Bridge();
-  assert.equal(bridge.getStats().gasSavedInETH, '0.0');
-  bridge.stats.totalGasSaved = 3000000;
-  assert.equal(bridge.getStats().gasSavedInETH, '0.15');
+  bridge.productNFT = { async on() {}, filters: { ProductRecycled() {} }, async queryFilter() { return []; } };
+  bridge.fabricNetwork = { async getChaincodeEvents() { return (async function* () { throw new Error('disconnected'); })(); } };
+  let reported;
+  bridge.on('streamFailed', error => { reported = error; });
+  await bridge.setupEventListeners(); await bridge.fabricEventTask;
+  assert.equal(reported.message, 'disconnected');
+  assert.equal(bridge.getStats().healthy, false);
 });
 
-test('bridge: recycling events update the matching Fabric product', async () => {
+test('bridge: recycling failures propagate and successful receipts use the restricted acknowledgment', async () => {
   const Bridge = require('../bridging/bridge');
   const bridge = new Bridge();
-  bridge.productNFT = { async productData(tokenId) {
-    assert.equal(tokenId, 42n);
-    return { fabricProductId: 'SHIRT-42' };
-  } };
+  const hash = '0x' + 'a'.repeat(64);
+  bridge.productNFT = {
+    async productData() { return { fabricProductId: 'SHIRT-42', recycled: true }; },
+    filters: { ProductRecycled() {} },
+    async queryFilter() { return [{ async getTransactionReceipt() { return { status: 1, hash }; } }]; },
+    runner: { provider: { async waitForTransaction() {} } },
+  };
+  bridge.fabricContract = { async submitTransaction() { throw new Error('Fabric unavailable'); } };
+  await assert.rejects(bridge.handleProductRecycled(42n), /Fabric unavailable/);
   let submitted;
-  bridge.fabricContract = { async submitTransaction(...args) { submitted = args; } };
+  bridge.fabricContract.submitTransaction = async (...args) => { submitted = args; };
   await bridge.handleProductRecycled(42n);
-  assert.equal(submitted[0], 'updateStatus');
-  assert.equal(submitted[1], 'SHIRT-42');
-  assert.equal(submitted[2], 'RECYCLING_INITIATED');
+  assert.deepEqual(submitted, ['recordRecycling', 'SHIRT-42', '42', hash]);
+});
+
+test('bridge: lost NFT acknowledgment recovers the original mint without minting twice', async () => {
+  const Bridge = require('../bridging/bridge');
+  const bridge = new Bridge();
+  const hash = '0x' + 'a'.repeat(64);
+  let mints = 0, tokenId = 0n, unavailable = true;
+  const proposal = { productId: 'shirt', recipient: '0x' + '1'.repeat(40), productType: 'finished', manufacturer: 'maker', metadataURI: 'ipfs://shirt', cottonBatchIds: ['batch'] };
+  bridge.productNFT = {
+    async fabricToTokenId() { return tokenId; },
+    async mintProduct() { mints++; tokenId = 42n; return { async wait() { return { status: 1, hash }; } }; },
+    async tokenURI() { return 'ipfs://shirt'; },
+    async productData() { return { fabricProductId: 'shirt', productType: 'finished', manufacturer: 'maker' }; },
+    filters: { Transfer(from, to) { return to; } },
+    async queryFilter(recipient) { return recipient === proposal.recipient ? [{ async getTransactionReceipt() { return { status: 1, hash }; } }] : []; },
+    runner: { provider: { async waitForTransaction() {} } },
+  };
+  bridge.fabricContract = { async submitTransaction(...args) {
+    if (unavailable) throw new Error('Fabric unavailable');
+    assert.deepEqual(args, ['mintNFT', 'shirt', '42']);
+  } };
+  await assert.rejects(bridge.processNFTMintingTransaction(proposal), /Fabric unavailable/);
+  unavailable = false;
+  await bridge.processNFTMintingTransaction(proposal);
+  assert.equal(mints, 1);
+  await assert.rejects(bridge.processNFTMintingTransaction({ ...proposal, recipient: '0x' + '2'.repeat(40) }), /NFT_RECONCILIATION_MISMATCH/);
 });
 
 test('bridge: explicit configuration wins over local environment defaults', async t => {
@@ -186,7 +158,7 @@ test('bridge: explicit configuration wins over local environment defaults', asyn
   const file = path.join(directory, 'bridge.json');
   const config = {
     ethereumRpcUrl: 'http://127.0.0.1:8545', ethereumPrivateKey: 'configured-key',
-    sidechainBridgeAddress: 'configured-bridge', cotTokenAddress: 'configured-token',
+    cotTokenAddress: 'configured-token',
     productNFTAddress: 'configured-nft', abiDir: directory,
     fabricConnectionProfilePath: 'configured-profile', fabricWalletPath: 'configured-wallet',
   };

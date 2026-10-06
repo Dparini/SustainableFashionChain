@@ -6,6 +6,7 @@ import argparse
 import json
 import subprocess
 import textwrap
+from functools import lru_cache
 from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
@@ -19,6 +20,7 @@ TEAL = '#48dfb0'
 RED = '#ff8c8c'
 
 
+@lru_cache(maxsize=16)
 def font(size):
     for candidate in ['/System/Library/Fonts/Menlo.ttc', '/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf']:
         if Path(candidate).exists(): return ImageFont.truetype(candidate, size)
@@ -59,6 +61,78 @@ def graph_frame():
     d.text((70,516),'Simulator verifies. Isolated executor executes.',font=font(25),fill=INK)
     d.text((70,585),'No model keys • Backed issuance • Replay rejection • Audit hashes',font=font(19),fill=TEAL)
     d.text((70,655),'Recorded demonstration: local Ethereum + in-memory Fabric chaincode fixture',font=font(15),fill=MUTED)
+    return image
+
+
+def encode_story(slides, destination):
+    """Animate evidence reveal, chapter transitions and elapsed time; keep receipts intact."""
+    fps = 10
+    process = subprocess.Popen([
+        'ffmpeg', '-y', '-hide_banner', '-loglevel', 'error', '-f', 'rawvideo',
+        '-pixel_format', 'rgb24', '-video_size', '1280x720', '-framerate', str(fps),
+        '-i', '-', '-an', '-c:v', 'libx264', '-preset', 'fast', '-crf', '20',
+        '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(destination)
+    ], stdin=subprocess.PIPE)
+    total = sum(duration for _, duration in slides)
+    elapsed, previous = 0, None
+    try:
+        for chapter, (slide, duration) in enumerate(slides):
+            for tick in range(duration * fps):
+                frame = slide.copy()
+                draw = ImageDraw.Draw(frame)
+                # Reveal actual terminal output in reading order, then hold it steady.
+                if chapter and tick < 20:
+                    reveal = 235 + int(365 * min(1, tick / 19))
+                    draw.rectangle((60, reveal, 1215, 626), fill=PANEL)
+                draw.text((1030, 35), f'{chapter+1:02} / {len(slides):02}', font=font(18), fill=MUTED)
+                draw.rectangle((40, 653, 1240, 656), fill='#26364b')
+                progress = (elapsed + tick / fps) / total
+                draw.rectangle((40, 653, 40 + int(1200 * progress), 656), fill=TEAL)
+                for boundary in range(1, len(slides)):
+                    x = 40 + int(1200 * sum(d for _, d in slides[:boundary]) / total)
+                    draw.rectangle((x, 652, x+2, 657), fill=BG)
+                if previous is not None and tick < 4:
+                    frame = Image.blend(previous, frame, (tick + 1) / 4)
+                process.stdin.write(frame.tobytes())
+            previous = frame
+            elapsed += duration
+    except BaseException:
+        process.kill()
+        raise
+    finally:
+        process.stdin.close()
+        process.wait()
+    if process.returncode:
+        raise RuntimeError(f'Video encoder failed: {process.returncode}')
+
+
+def lifecycle_intro(lifecycle):
+    image = Image.new('RGB', (1280, 720), BG)
+    d = ImageDraw.Draw(image)
+    d.text((48, 35), 'SUSTAINABLE FASHION CHAIN', font=font(18), fill=TEAL)
+    d.text((48, 95), 'From physical cotton to public asset claims', font=font(32), fill=INK)
+    d.text((48, 152), 'One verifiable lifecycle. Two ledgers. Explicit trust boundaries.', font=font(19), fill=MUTED)
+    for i, (title, detail) in enumerate([
+        ('Physical cotton', 'Farm + custody'), ('Fabric', 'Certification'),
+        ('Verified relay', 'Backed issuance'), ('Ethereum', 'COT + ProductNFT')
+    ]):
+        x = 48 + i * 304
+        d.rounded_rectangle((x, 240, x+270, 370), radius=16, fill=PANEL, outline='#34506b', width=2)
+        d.text((x+18, 264), title, font=font(22), fill=INK)
+        d.text((x+18, 314), detail, font=font(17), fill=TEAL)
+        if i < 3:
+            d.line((x+272, 305, x+300, 305), fill=TEAL, width=3)
+            d.polygon([(x+300,305), (x+291,299), (x+291,311)], fill=TEAL)
+    for i, (value, label) in enumerate([
+        (f"{int(lifecycle['verifiedKg']):,} kg", 'verified backing'),
+        (f"{int(lifecycle['mintedCOT']):,} COT", 'backed claims'),
+        (f"NFT #{lifecycle['nft']['tokenId']}", 'garment recycled')
+    ]):
+        x = 65 + i*402
+        d.text((x, 456), value, font=font(34), fill=INK)
+        d.text((x, 507), label, font=font(19), fill=MUTED)
+    d.text((48, 585), '1 COT = a claim representing 1 kg of certified cotton', font=font(21), fill=TEAL)
+    d.text((48, 678), 'Recorded E2E results • Fabric chaincode fixture • Local Ethereum • No real funds', font=font(14), fill=MUTED)
     return image
 
 
@@ -106,13 +180,9 @@ def main():
             '', 'ACTION REJECTED', 'No transaction built or sent.','',
             'LLM intelligence ≠ system safety']),10)]
     frames=ROOT/'.runtime/demo-frames';frames.mkdir(parents=True,exist_ok=True);ASSETS.mkdir(parents=True,exist_ok=True)
-    concat=[]
-    for index,(slide,duration) in enumerate(slides):
-        file=frames/f'{index:02}.png';slide.save(file);concat.extend([f"file '{file}'",f'duration {duration}'])
-    concat.append(f"file '{frames/'06.png'}'")
-    listing=frames/'frames.txt';listing.write_text('\n'.join(concat)+'\n')
-    subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-f','concat','-safe','0','-i',str(listing),
-                    '-r','20','-c:v','libx264','-pix_fmt','yuv420p','-t','80','-movflags','+faststart',str(ASSETS/'demo.mp4')],check=True)
+    for index, (slide, _) in enumerate(slides):
+        slide.save(frames/f'{index:02}.png')
+    encode_story(slides, ASSETS/'demo.mp4')
     gifs=[slides[i][0].resize((960,540),Image.Resampling.LANCZOS) for i in [3,4,6]]
     gifs[0].save(ASSETS/'terminal-demo.gif',save_all=True,append_images=gifs[1:],duration=[5500,5500,6500],loop=0,optimize=True)
     slides[0][0].save(ASSETS/'demo-poster.png')
@@ -157,18 +227,14 @@ def main():
             'Provenance remains linked. COT backing is unchanged.'], footer), 12),
     ]
     lifecycle_frames = frames/'lifecycle'; lifecycle_frames.mkdir(exist_ok=True)
-    listing_lines = []
-    for index, (slide, duration) in enumerate(lifecycle_slides):
-        file = lifecycle_frames/f'{index:02}.png'; slide.save(file)
-        listing_lines.extend([f"file '{file}'", f'duration {duration}'])
-    listing_lines.append(f"file '{lifecycle_frames/'06.png'}'")
-    lifecycle_listing = lifecycle_frames/'frames.txt'
-    lifecycle_listing.write_text('\n'.join(listing_lines)+'\n')
-    subprocess.run(['ffmpeg','-y','-hide_banner','-loglevel','error','-f','concat','-safe','0','-i',str(lifecycle_listing),
-                    '-r','20','-c:v','libx264','-pix_fmt','yuv420p','-t','80','-movflags','+faststart',str(ASSETS/'cotton-lifecycle.mp4')],check=True)
+    lifecycle_slides[0] = (lifecycle_intro(lifecycle), 10)
+    lifecycle_slides[0][0].save(ASSETS/'lifecycle-poster.png')
+    for index, (slide, _) in enumerate(lifecycle_slides):
+        slide.save(lifecycle_frames/f'{index:02}.png')
+    encode_story(lifecycle_slides, ASSETS/'cotton-lifecycle.mp4')
     gif_frames = [slide.resize((960,540),Image.Resampling.LANCZOS) for slide, _ in lifecycle_slides[1:]]
     gif_frames[0].save(ASSETS/'cotton-lifecycle.gif',save_all=True,append_images=gif_frames[1:],duration=3500,loop=0,optimize=True)
-    print('Rendered 80-second video and terminal GIF from the recorded E2E decisions.')
+    print('Rendered two 80-second chaptered videos and GIFs from verified E2E output.')
 
 
 if __name__=='__main__':main()

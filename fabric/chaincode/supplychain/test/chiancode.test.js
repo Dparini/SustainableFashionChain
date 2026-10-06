@@ -105,5 +105,4 @@ describe('SupplyChainContract', () => {
     });
   });
 
-  // Add more tests for other functions...
 });

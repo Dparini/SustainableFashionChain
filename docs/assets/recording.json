@@ -1,7 +1,7 @@
 {
-  "capturedAt": "2026-10-06T07:09:59.692Z",
+  "capturedAt": "2026-10-06T08:26:14.687Z",
   "scope": "Local Ethereum and in-memory Fabric chaincode fixture",
-  "setup": "\n{\"batchId\":1,\"level\":\"info\",\"message\":\"Processing NFT minting transaction\",\"service\":\"optimized-bridge\",\"timestamp\":\"2026-10-06T07:09:54.095Z\"}\n{\"level\":\"info\",\"message\":\"NFT minted successfully\",\"service\":\"optimized-bridge\",\"timestamp\":\"2026-10-06T07:09:54.106Z\",\"tokenId\":\"1\",\"transactionHash\":\"0x3d7629aec23dcb5e20d550f4f0af1f8392d8f9af972e70075ab02d31cc2a8093\"}\n{\"level\":\"info\",\"message\":\"Product recycling recorded on Fabric\",\"productId\":\"DEMO-GARMENT-001\",\"service\":\"optimized-bridge\",\"timestamp\":\"2026-10-06T07:09:54.118Z\",\"tokenId\":\"1\"}\nLifecycle: DEMO-GARMENT-001 → ProductNFT #1 → Ethereum recycling → Fabric RECYCLING_INITIATED\nFabric: real chaincode using an in-memory fixture (no live Fabric network)\nEthereum: 42,000 verified kg; 35,000 COT minted via VerifiedRelay\nBridge replay: EVENT_ALREADY_PROCESSED; acknowledgment retry reconciled\nLocal demo configuration: <generated-demo-directory>/local.json\n",
+  "setup": "\nLifecycle: DEMO-GARMENT-001 → ProductNFT #1 → Ethereum recycling → Fabric RECYCLING_INITIATED\nFabric: real chaincode using an in-memory fixture (no live Fabric network)\nEthereum: 42,000 verified kg; 35,000 COT minted via VerifiedRelay\nBridge replay: EVENT_ALREADY_PROCESSED; acknowledgment retry reconciled\nLocal demo configuration: <generated-demo-directory>/local.json\n",
   "fabric": {
     "kind": "in-memory Fabric chaincode fixture",
     "batches": [
@@ -12,8 +12,8 @@
         "producer": "Demo farm",
         "quantityKg": 42000,
         "certificationHash": "0xfc47250a034f1a2e27a6afdbfeb5cada6c204e39c13302c9bd3aceff575b01ae",
-        "createdAt": "1791270594000",
-        "verifiedAt": "1791270594000",
+        "createdAt": "1791275168000",
+        "verifiedAt": "1791275168000",
         "rwaStatus": "TOKENIZED",
         "type": "cotton",
         "farmId": "Demo farm",
@@ -27,42 +27,42 @@
         "custodyHistory": [
           {
             "holder": "Demo farm",
-            "timestamp": "1791270594000",
+            "timestamp": "1791275168000",
             "location": "Demo origin"
           }
         ],
         "certifications": [],
-        "tokenizationId": "0xce7933ce9375b03b60eabe67a63d09874f377ea1eaff7add5adf72872fbf8be2",
+        "tokenizationId": "0xf30516882bc48a44a2be45b8a912ba7196a7e1bca5a673b4fbf5b2d9dde11cad",
         "history": [
           {
             "type": "Creation",
             "actor": "Demo farm",
-            "timestamp": "1791270594000",
+            "timestamp": "1791275168000",
             "details": "Cotton batch registered on blockchain"
           },
           {
             "type": "Stored",
             "actor": "producer",
-            "timestamp": "1791270594000",
+            "timestamp": "1791275168000",
             "details": "Stored at warehouse DEMO-WH"
           },
           {
             "type": "TokenizationRequested",
             "actor": "certifier",
-            "timestamp": "1791270594000",
+            "timestamp": "1791275168000",
             "details": "Tokenization requested for 35000 kg at warehouse DEMO-WH"
           },
           {
             "type": "TokenizationApproved",
             "actor": "certifier",
-            "timestamp": "1791270594000",
+            "timestamp": "1791275168000",
             "details": "Tokenization request DEMO-REQUEST-001 approved for 35000 kg"
           },
           {
             "type": "TokenizationCompleted",
             "actor": "bridge",
-            "timestamp": "1791270594000",
-            "details": "Tokenization completed on Ethereum with transaction 0xce7933ce9375b03b60eabe67a63d09874f377ea1eaff7add5adf72872fbf8be2"
+            "timestamp": "1791275168000",
+            "details": "Tokenization completed on Ethereum with transaction 0xf30516882bc48a44a2be45b8a912ba7196a7e1bca5a673b4fbf5b2d9dde11cad"
           }
         ],
         "verifiedBy": "certifier",
@@ -110,14 +110,14 @@
       "custodyHistory": [
         {
           "holder": "Demo manufacturer",
-          "timestamp": "1791270594000"
+          "timestamp": "1791275168000"
         }
       ],
       "history": [
         {
           "type": "Creation",
           "actor": "Demo manufacturer",
-          "timestamp": "1791270594000",
+          "timestamp": "1791275168000",
           "details": "Finished product created from 1 batch(es)"
         }
       ]
@@ -125,11 +125,11 @@
     "nft": {
       "tokenId": "1",
       "owner": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
-      "mintTx": "0x3d7629aec23dcb5e20d550f4f0af1f8392d8f9af972e70075ab02d31cc2a8093",
+      "mintTx": "0x5f5af61e250a2ad4d1559ccec77a9f4c7a57f28f131226bc3fca22b06a034485",
       "metadataURI": "ipfs://demo/DEMO-GARMENT-001"
     },
     "recycling": {
-      "ethereumTx": "0x5e5ff2078a85d6cc8ec77634a1afd88c386359d1bda4e51964387f3bb3271b84",
+      "ethereumTx": "0x31958a2693135eaea2e9beb0fa436c94468a7fdf32bfa4f5c1eda35b55df189f",
       "ethereumRecycled": true,
       "fabricProduct": {
         "id": "DEMO-GARMENT-001",
@@ -152,29 +152,30 @@
         "custodyHistory": [
           {
             "holder": "Demo manufacturer",
-            "timestamp": "1791270594000"
+            "timestamp": "1791275168000"
           }
         ],
         "history": [
           {
             "type": "Creation",
             "actor": "Demo manufacturer",
-            "timestamp": "1791270594000",
+            "timestamp": "1791275168000",
             "details": "Finished product created from 1 batch(es)"
           },
           {
             "type": "NFTMinted",
             "actor": "bridge",
-            "timestamp": "1791270594000",
+            "timestamp": "1791275168000",
             "details": "NFT minted on Ethereum with token ID 1"
+          },
+          {
+            "type": "RecyclingInitiated",
+            "actor": "bridge",
+            "timestamp": "1791275168000",
+            "details": "0x31958a2693135eaea2e9beb0fa436c94468a7fdf32bfa4f5c1eda35b55df189f"
           }
         ],
-        "statusHistory": [
-          {
-            "status": "RECYCLING_INITIATED",
-            "timestamp": "1791270594117"
-          }
-        ]
+        "recyclingTx": "0x31958a2693135eaea2e9beb0fa436c94468a7fdf32bfa4f5c1eda35b55df189f"
       }
     },
     "backingAfterRecycling": {
@@ -184,11 +185,11 @@
     }
   },
   "simulation": {
-    "decisionId": "dec_98bc6f19e9c1442fa4b33a0d76769955",
-    "timestamp": "2026-10-06T07:09:55.581440+00:00",
-    "stateHash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
+    "decisionId": "dec_7c0beba544454d8d88f10227eb831468",
+    "timestamp": "2026-10-06T08:26:09.747424+00:00",
+    "stateHash": "0xbdb6882728317e7bad26193bd65af8c899dcb0375531b4660bb9012ae483c984",
     "state": {
-      "timestamp": 1791270609,
+      "timestamp": 1791275184,
       "source": "local_chain",
       "fabric_connected": false,
       "ethereum_connected": true,
@@ -203,7 +204,7 @@
       },
       "oracle": {
         "price": "1.72",
-        "updated_at": 1791270596,
+        "updated_at": 1791275171,
         "round_id": 1,
         "answered_in_round": 1
       },
@@ -247,7 +248,7 @@
       "expected_cot_delta": "500",
       "expected_usd_delta": "-861.72",
       "post_trade_exposure": "0.2580443836339850454278135839364370671755541953215953143940757810343379061198526146497197517973091372",
-      "state_hash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
+      "state_hash": "0xbdb6882728317e7bad26193bd65af8c899dcb0375531b4660bb9012ae483c984",
       "action_hash": "0xc5777e3ef653b9e7240ff37200f7b2ba31024e6bd095a5afe124853c4c882934",
       "reason": "Exact allowlisted transaction passed eth_call and gas estimation; quote matches expected deltas."
     },
@@ -255,11 +256,11 @@
     "error": null
   },
   "rejection": {
-    "decisionId": "dec_b5ab3198b8174e50a8d6c3d2a6444af6",
-    "timestamp": "2026-10-06T07:09:56.330050+00:00",
-    "stateHash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
+    "decisionId": "dec_75f3645d8be74a2dba851242b915ff97",
+    "timestamp": "2026-10-06T08:26:10.500766+00:00",
+    "stateHash": "0xbdb6882728317e7bad26193bd65af8c899dcb0375531b4660bb9012ae483c984",
     "state": {
-      "timestamp": 1791270609,
+      "timestamp": 1791275184,
       "source": "local_chain",
       "fabric_connected": false,
       "ethereum_connected": true,
@@ -274,7 +275,7 @@
       },
       "oracle": {
         "price": "1.72",
-        "updated_at": 1791270596,
+        "updated_at": 1791275171,
         "round_id": 1,
         "answered_in_round": 1
       },
@@ -332,11 +333,11 @@
     "error": null
   },
   "invalid": {
-    "decisionId": "dec_0ec5664308bd4ae98bbcddcfdfeada15",
-    "timestamp": "2026-10-06T07:09:57.112266+00:00",
-    "stateHash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
+    "decisionId": "dec_dd56f46ecbfb4a98a5169eb04bd0f64d",
+    "timestamp": "2026-10-06T08:26:11.418641+00:00",
+    "stateHash": "0xbdb6882728317e7bad26193bd65af8c899dcb0375531b4660bb9012ae483c984",
     "state": {
-      "timestamp": 1791270609,
+      "timestamp": 1791275184,
       "source": "local_chain",
       "fabric_connected": false,
       "ethereum_connected": true,
@@ -351,7 +352,7 @@
       },
       "oracle": {
         "price": "1.72",
-        "updated_at": 1791270596,
+        "updated_at": 1791275171,
         "round_id": 1,
         "answered_in_round": 1
       },
@@ -388,11 +389,11 @@
     }
   },
   "execution": {
-    "decisionId": "dec_656891792a834ed98a9ccfc12ab5e29b",
-    "timestamp": "2026-10-06T07:09:57.867852+00:00",
-    "stateHash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
+    "decisionId": "dec_794fa4428d554781a32030faaba85dfc",
+    "timestamp": "2026-10-06T08:26:12.451689+00:00",
+    "stateHash": "0xbdb6882728317e7bad26193bd65af8c899dcb0375531b4660bb9012ae483c984",
     "state": {
-      "timestamp": 1791270609,
+      "timestamp": 1791275184,
       "source": "local_chain",
       "fabric_connected": false,
       "ethereum_connected": true,
@@ -407,7 +408,7 @@
       },
       "oracle": {
         "price": "1.72",
-        "updated_at": 1791270596,
+        "updated_at": 1791275171,
         "round_id": 1,
         "answered_in_round": 1
       },
@@ -451,15 +452,15 @@
       "expected_cot_delta": "500",
       "expected_usd_delta": "-861.72",
       "post_trade_exposure": "0.2580443836339850454278135839364370671755541953215953143940757810343379061198526146497197517973091372",
-      "state_hash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
+      "state_hash": "0xbdb6882728317e7bad26193bd65af8c899dcb0375531b4660bb9012ae483c984",
       "action_hash": "0xc5777e3ef653b9e7240ff37200f7b2ba31024e6bd095a5afe124853c4c882934",
       "reason": "Exact allowlisted transaction passed eth_call and gas estimation; quote matches expected deltas."
     },
-    "executionTx": "0xdf9eeee888320f6ac78ce6edeb34190c58220d84357af81efaf8b6abf3d740d9",
+    "executionTx": "0x119fba9b563e16ed9c13c06fcb331ef84e19f543851c21fdeba909d1bb758c1d",
     "error": null,
     "executionRevalidation": {
       "state": {
-        "timestamp": 1791270609,
+        "timestamp": 1791275184,
         "source": "local_chain",
         "fabric_connected": false,
         "ethereum_connected": true,
@@ -474,7 +475,7 @@
         },
         "oracle": {
           "price": "1.72",
-          "updated_at": 1791270596,
+          "updated_at": 1791275171,
           "round_id": 1,
           "answered_in_round": 1
         },
@@ -492,7 +493,7 @@
         "chain_id": 31337,
         "block_number": 18
       },
-      "stateHash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
+      "stateHash": "0xbdb6882728317e7bad26193bd65af8c899dcb0375531b4660bb9012ae483c984",
       "policy": {
         "approved": true,
         "violations": []
@@ -504,24 +505,24 @@
         "expected_cot_delta": "500",
         "expected_usd_delta": "-861.72",
         "post_trade_exposure": "0.2580443836339850454278135839364370671755541953215953143940757810343379061198526146497197517973091372",
-        "state_hash": "0xaaebdc4653202cfd0170865f156e89c593d607fcea34b9497160642e0d46f70c",
+        "state_hash": "0xbdb6882728317e7bad26193bd65af8c899dcb0375531b4660bb9012ae483c984",
         "action_hash": "0xc5777e3ef653b9e7240ff37200f7b2ba31024e6bd095a5afe124853c4c882934",
         "reason": "Exact allowlisted transaction passed eth_call and gas estimation; quote matches expected deltas."
       },
       "transaction": {
         "from": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
         "to": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
-        "data": "0x40993b2600000000000000000000000000000000000000000000001b1ae4d6e2ef5000000000000000000000000000000000000000000000000000000000000033842be0000000000000000000000000000000000000000000000000000000006ac49f0d",
+        "data": "0x40993b2600000000000000000000000000000000000000000000001b1ae4d6e2ef5000000000000000000000000000000000000000000000000000000000000033842be0000000000000000000000000000000000000000000000000000000006ac4b0ec",
         "value": 0,
         "chainId": 31337,
         "nonce": 3,
         "gas": 119656,
-        "gasPrice": 1083159062
+        "gasPrice": 1083122542
       },
       "status": "confirmed",
-      "executionTx": "0xdf9eeee888320f6ac78ce6edeb34190c58220d84357af81efaf8b6abf3d740d9",
+      "executionTx": "0x119fba9b563e16ed9c13c06fcb331ef84e19f543851c21fdeba909d1bb758c1d",
       "postState": {
-        "timestamp": 1791270612,
+        "timestamp": 1791275188,
         "source": "local_chain",
         "fabric_connected": false,
         "ethereum_connected": true,
@@ -536,7 +537,7 @@
         },
         "oracle": {
           "price": "1.72",
-          "updated_at": 1791270596,
+          "updated_at": 1791275171,
           "round_id": 1,
           "answered_in_round": 1
         },
@@ -554,15 +555,15 @@
         "chain_id": 31337,
         "block_number": 19
       },
-      "postStateHash": "0x1422f244830b5e96047399886579c217090b5bd42bb3ed65752feb1d288131a0"
+      "postStateHash": "0x6114018d68d11512bb97428bdb3b1724e2bc4f47ca350bc9343703c392adfc6b"
     }
   },
   "stale": {
-    "decisionId": "dec_cb2d00888b204beabc8153f503394cee",
-    "timestamp": "2026-10-06T07:09:59.626502+00:00",
-    "stateHash": "0x67275af35e258207e827cdb5431e63bb45da76775b75e65a4e97c9a2536be530",
+    "decisionId": "dec_071c2476316e45bbb1752b5df672274e",
+    "timestamp": "2026-10-06T08:26:14.598578+00:00",
+    "stateHash": "0xac4f7237a691ac4231ae64e23e7845b9c838020ca9ea4fd8a8e6cb951957e59c",
     "state": {
-      "timestamp": 1791270613,
+      "timestamp": 1791275189,
       "source": "local_chain",
       "fabric_connected": false,
       "ethereum_connected": true,
@@ -577,7 +578,7 @@
       },
       "oracle": {
         "price": "1.72",
-        "updated_at": 1791267011,
+        "updated_at": 1791271587,
         "round_id": 2,
         "answered_in_round": 2
       },

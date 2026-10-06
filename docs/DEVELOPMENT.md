@@ -39,7 +39,12 @@ The frontend entry point is split into separate pages, and the development serve
 proxies `/api` to `http://127.0.0.1:3001`. Override `API_PROXY_TARGET` for a different
 backend or `REACT_APP_API_URL` for a different public API URL. Start the backend
 with `npm start` in `fabric/application`, then the frontend with `npm start` in
-`frontend`. Use the Sign in page with an API access key before accessing protected
+`frontend`. Configure separate `API_READ_KEY` and `API_ADMIN_KEY` values (at least 16 characters),
+and `JWT_SECRET` (at least 32 bytes). Generate random values with `openssl rand -hex 32`.
+Without configured API keys, token issuance grants no access. Without a JWT secret,
+tokens use an ephemeral key and expire on restart. Token keys are separated by API domain.
+HTML admin login additionally requires `ADMIN_USERNAME` and `ADMIN_PASSWORD`; it has no default credentials.
+Use the Sign in page with a configured API access key before accessing protected
 ledger endpoints. The public verification endpoint does not require a key.
 
 The backend can serve its health endpoint and login pages without Fabric.
@@ -47,7 +52,7 @@ Ledger operations still require the connection profile, wallet identity and a
 running Fabric network. The bridge is opt-in in the backend (`START_BRIDGE=true`)
 or can be run separately with `npm start` in `bridging`. Set `BRIDGE_CONFIG` to a
 JSON configuration file containing `ethereumRpcUrl`, an Ethereum signing key or
-mnemonic, `sidechainBridgeAddress`, `cotTokenAddress`, `productNFTAddress`, `abiDir`,
+mnemonic, `cotTokenAddress`, `productNFTAddress`, `abiDir`,
 `fabricConnectionProfilePath` and `fabricWalletPath`. Contract addresses and ABI
 files must match the deployed contracts. Do not commit private keys.
 

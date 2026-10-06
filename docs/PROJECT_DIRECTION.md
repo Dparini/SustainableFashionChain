@@ -135,3 +135,11 @@ No further feature expansion is planned beyond verification and maintenance.
   with source-map-js 1.2.2 and the scoped YAML parser override. A clean backend
   npm ci, 13 backend tests with coverage, 19 compatibility/boundary tests and 18
   frontend tests/build passed. All six npm audits report zero vulnerabilities.
+
+## Reliability refinement
+
+- Prioritize review, dead-code removal, explicit errors, clean-clone reproduction and demo quality; no new features.
+- The supported bridge now reconciles COT/NFT receipts and confirmed recycling with restricted, idempotent Fabric acknowledgments.
+- Removed unused experimental contracts and alternate bridge runners. Ledger queries close iterators and reject malformed records.
+- Regression tests cover lost acknowledgment, concurrent retries, stream failure, restricted NFT state and corrupt queries. See docs/REVIEW.md.
+- Videos now last exactly 80 seconds with chapter transitions, evidence reveal and a progress timeline.

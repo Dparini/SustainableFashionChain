@@ -1,1070 +1,204 @@
-/**
- * OptimizedBridge
- *
- * Provides an optimized bridge between Hyperledger Fabric and Ethereum networks
- * using batching, state channels, and Ethereum sidechains to reduce gas costs and improve throughput.
- */
-
-'use strict';
+"use strict";
 
 const { connectToFabric } = require('./fabric-client');
+const { VerifiedRelay } = require('./verified-relay');
 const { ethers } = require('ethers');
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
-const { MerkleTree } = require('merkletreejs');
-const keccak256 = require('keccak256');
-const EventEmitter = require('events');
+const fs = require('node:fs');
+const path = require('node:path');
+const EventEmitter = require('node:events');
 const winston = require('winston');
 
-// Configure logging
 const logger = winston.createLogger({
-  level: 'info',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format(info => {
-      if (info.error instanceof Error) {
-        const { name, message, stack, code } = info.error;
-        info.error = { name, message, stack, ...(code === undefined ? {} : { code }) };
-      }
-      return info;
-    })(),
-    winston.format.json()
-  ),
-  defaultMeta: { service: 'optimized-bridge' },
-  transports: [
-    new winston.transports.Console(),
-    new winston.transports.File({ filename: path.join(__dirname, 'optimized-bridge.log') })
-  ]
+  level: 'info', format: winston.format.combine(winston.format.timestamp(), winston.format.json()),
+  defaultMeta: { service: 'verified-bridge' }, transports: [new winston.transports.Console()],
 });
 
-class OptimizedBridge extends EventEmitter {
-  constructor(config) {
+// The queue groups work locally. Each issuance is a separately verified transaction;
+// no fabricated validator signatures, sidechain settlement or gas-saving estimates.
+class VerifiedBridge extends EventEmitter {
+  constructor(config = {}) {
     super();
-    this.config = config || {};
-
-    // Default configuration
-    this.config.batchSize = this.config.batchSize || 50;
-    this.config.batchTimeoutMs = this.config.batchTimeoutMs || 300000; // 5 minutes
-    this.config.stateChannelTimeoutMs = this.config.stateChannelTimeoutMs || 86400000; // 24 hours
-    this.config.requiredConfirmations = this.config.requiredConfirmations || 12; // Ethereum confirmations
-    this.config.gasLimitMultiplier = this.config.gasLimitMultiplier || 1.5; // Safety multiplier for gas limit
-
-    // Initialize transaction queues
-    this.fabricToEthereumQueue = [];
-    this.ethereumToFabricQueue = [];
-
-    // Initialize batch state
-    this.currentBatchId = 0;
-    this.currentMerkleTree = null;
-    this.batchTimerId = null;
-
-    // Initialize state channel state
-    this.activeStateChannels = new Map();
-    this.stateChannelTimers = new Map();
-
-    // Initialize Ethereum provider and contracts
-    this.provider = null;
-    this.wallet = null;
-    this.transactionSigner = null;
-    this.sidechainBridge = null;
-    this.cotToken = null;
-    this.productNFT = null;
-
-    // Initialize Fabric gateway and contract
-    this.fabricGateway = null;
-    this.fabricNetwork = null;
-    this.fabricContract = null;
-
-    // Initialize validators
-    this.validators = [];
-
-    // Statistics
-    this.stats = {
-      totalFabricToEthereumTx: 0,
-      totalEthereumToFabricTx: 0,
-      successfulFabricToEthereumTx: 0,
-      successfulEthereumToFabricTx: 0,
-      failedFabricToEthereumTx: 0,
-      failedEthereumToFabricTx: 0,
-      totalBatches: 0,
-      totalGasSaved: 0,
-      totalStateChannelTx: 0
-    };
+    this.config = { batchSize: 50, batchTimeoutMs: 5000, requiredConfirmations: 12, ...config };
+    for (const key of ['batchSize', 'batchTimeoutMs', 'requiredConfirmations']) {
+      if (!Number.isSafeInteger(this.config[key]) || this.config[key] <= 0) throw new Error(`INVALID_BRIDGE_CONFIG: ${key}`);
+    }
+    if (config.sidechainRpcUrl || config.stateChannelThreshold) throw new Error('UNVERIFIED_ISSUANCE_PATH_DISABLED');
+    this.pendingActions = [];
+    this.stats = { successfulFabricToEthereumTx: 0, failedFabricToEthereumTx: 0, totalBatches: 0 };
+    this.stopping = false;
   }
 
-  /**
-   * Initialize the bridge
-   */
   async initialize() {
     try {
-      logger.info('Initializing OptimizedBridge...');
-
-      // Connect to Ethereum
       await this.connectToEthereum();
-
-      // Connect to Fabric
       await this.connectToFabric();
-
-      // Set up event listeners
       await this.setupEventListeners();
-
-      // Start the batch timer
       this.startBatchTimer();
-
-      logger.info('OptimizedBridge initialized successfully');
-      return true;
     } catch (error) {
-      logger.error(`Failed to initialize bridge: ${error.message}`, { error });
+      await this.stop();
       throw error;
     }
   }
 
-  /**
-   * Connect to Ethereum networks (both mainnet and sidechain)
-   */
   async connectToEthereum() {
-    try {
-      logger.info('Connecting to Ethereum networks...');
-
-      // Connect to mainnet (or testnet)
-      this.provider = new ethers.JsonRpcProvider(this.config.ethereumRpcUrl);
-
-      // Load wallet from private key or mnemonic
-      if (this.config.ethereumPrivateKey) {
-        this.wallet = new ethers.Wallet(this.config.ethereumPrivateKey, this.provider);
-      } else if (this.config.ethereumMnemonic) {
-        this.wallet = ethers.Wallet.fromPhrase(this.config.ethereumMnemonic);
-        this.wallet = this.wallet.connect(this.provider);
-      } else {
-        throw new Error('Ethereum private key or mnemonic is required');
-      }
-
-      logger.info(`Connected to Ethereum with address: ${this.wallet.address}`);
-      // All contracts share this account; keep one nonce sequence across them.
-      this.transactionSigner = new ethers.NonceManager(this.wallet);
-
-      // Load contract ABIs
-      const sidechainBridgeAbi = JSON.parse(fs.readFileSync(path.join(this.config.abiDir, 'SidechainBridge.json'), 'utf8')).abi;
-      const cotTokenAbi = JSON.parse(fs.readFileSync(path.join(this.config.abiDir, 'CotToken.json'), 'utf8')).abi;
-      const productNFTAbi = JSON.parse(fs.readFileSync(path.join(this.config.abiDir, 'ProductNFT.json'), 'utf8')).abi;
-
-      // Initialize contract instances
-      this.sidechainBridge = new ethers.Contract(
-        this.config.sidechainBridgeAddress,
-        sidechainBridgeAbi,
-        this.transactionSigner
-      );
-
-      this.cotToken = new ethers.Contract(
-        this.config.cotTokenAddress,
-        cotTokenAbi,
-        this.transactionSigner
-      );
-
-      this.productNFT = new ethers.Contract(
-        this.config.productNFTAddress,
-        productNFTAbi,
-        this.transactionSigner
-      );
-
-      // If using sidechain, connect to it as well
-      if (this.config.sidechainRpcUrl) {
-        this.sidechainProvider = new ethers.JsonRpcProvider(this.config.sidechainRpcUrl);
-        this.sidechainWallet = this.wallet.connect(this.sidechainProvider);
-
-        logger.info(`Connected to Ethereum sidechain with address: ${this.sidechainWallet.address}`);
-      }
-
-      // Get validators from bridge contract
-      this.validators = await this.getValidators();
-
-      logger.info('Ethereum connections established successfully');
-      return true;
-    } catch (error) {
-      logger.error(`Failed to connect to Ethereum: ${error.message}`, { error });
-      throw error;
+    this.provider = new ethers.JsonRpcProvider(this.config.ethereumRpcUrl);
+    if (this.config.ethereumPrivateKey) this.wallet = new ethers.Wallet(this.config.ethereumPrivateKey, this.provider);
+    else if (this.config.ethereumMnemonic) this.wallet = ethers.Wallet.fromPhrase(this.config.ethereumMnemonic).connect(this.provider);
+    else throw new Error('BRIDGE_SIGNER_REQUIRED');
+    this.transactionSigner = new ethers.NonceManager(this.wallet);
+    for (const [name, field] of [['CotToken', 'cotToken'], ['ProductNFT', 'productNFT']]) {
+      const { abi } = JSON.parse(fs.readFileSync(path.join(this.config.abiDir, `${name}.json`), 'utf8'));
+      const address = this.config[`${field}Address`];
+      if (!ethers.isAddress(address) || await this.provider.getCode(address) === '0x') throw new Error(`MISSING_BRIDGE_CONTRACT: ${name}`);
+      this[field] = new ethers.Contract(address, abi, this.transactionSigner);
     }
   }
 
-  /**
-   * Connect to Hyperledger Fabric network
-   */
   async connectToFabric() {
-    try {
-      logger.info('Connecting to Hyperledger Fabric network...');
-
-      const connection = await connectToFabric({
-        profilePath: this.config.fabricConnectionProfilePath,
-        walletPath: this.config.fabricWalletPath,
-        identity: this.config.fabricUserName,
-        channel: this.config.fabricChannelName,
-        chaincode: this.config.fabricContractName,
-        asLocalhost: this.config.fabricAsLocalhost,
-      });
-      this.fabricGateway = connection.gateway;
-      this.fabricNetwork = connection.network;
-      this.fabricContract = connection.contract;
-
-      logger.info('Hyperledger Fabric connection established successfully');
-      return true;
-    } catch (error) {
-      logger.error(`Failed to connect to Fabric: ${error.message}`, { error });
-      throw error;
-    }
+    const connection = await connectToFabric({
+      profilePath: this.config.fabricConnectionProfilePath, walletPath: this.config.fabricWalletPath,
+      identity: this.config.fabricUserName, channel: this.config.fabricChannelName,
+      chaincode: this.config.fabricContractName, asLocalhost: this.config.fabricAsLocalhost,
+    });
+    this.fabricGateway = connection.gateway;
+    this.fabricNetwork = connection.network;
+    this.fabricContract = connection.contract;
   }
 
-  /**
-   * Set up event listeners for both networks
-   */
   async setupEventListeners() {
-    try {
-      logger.info('Setting up event listeners...');
-
-      // Ethereum events
-      await this.sidechainBridge.on('BatchSubmitted', this.handleBatchSubmitted.bind(this));
-      await this.sidechainBridge.on('TokensLockedForSidechain', this.handleTokensLocked.bind(this));
-      await this.sidechainBridge.on('NFTLockedForSidechain', this.handleNFTLocked.bind(this));
-      await this.sidechainBridge.on('TokensReleasedFromSidechain', this.handleTokensReleased.bind(this));
-      await this.sidechainBridge.on('NFTReleasedFromSidechain', this.handleNFTReleased.bind(this));
-      await this.productNFT.on('ProductRecycled', this.handleProductRecycled.bind(this));
-
-      // Fabric events using contract listeners
-      const tokenizationListener = async (event) => {
-        const eventPayload = JSON.parse(event.payload.toString());
-        eventPayload.fabricTxId = event.transactionId;
-        await this.handleFabricTokenizationRequest(eventPayload);
-      };
-
-      const nftMintingListener = async (event) => {
-        const eventPayload = JSON.parse(event.payload.toString());
-        await this.handleFabricNFTMintingRequest(eventPayload);
-      };
-
-      // Register Fabric event listeners
-      const tokenizationEventName = this.config.fabricTokenizationEventName || 'TokenizationRequested';
-      const nftMintingEventName = this.config.fabricNFTMintingEventName || 'NFTMintingRequested';
-
-      this.fabricEvents = await this.fabricNetwork.getChaincodeEvents(this.config.fabricContractName || 'supplychain');
-      this.fabricEventTask = (async () => {
-        for await (const event of this.fabricEvents) {
-          const bufferedEvent = { ...event, payload: Buffer.from(event.payload) };
-          if (event.eventName === tokenizationEventName) await tokenizationListener(bufferedEvent);
-          else if (event.eventName === nftMintingEventName) await nftMintingListener(bufferedEvent);
-        }
-      })().catch(error => {
-        if (!this.stopping) logger.error('Fabric event stream failed', { error: error.message });
-      });
-
-      logger.info('Event listeners set up successfully');
-    } catch (error) {
-      logger.error(`Failed to set up event listeners: ${error.message}`, { error });
-      throw error;
+    await this.productNFT.on('ProductRecycled', tokenId => {
+      // Persisted Ethereum logs are the recovery source; processing uses the same retry queue.
+      this.queueFabricToEthereumTransaction({ type: 'recycling', tokenId: tokenId.toString() });
+    });
+    // Reconcile historical recycling on restart as well as new notifications.
+    for (const event of await this.productNFT.queryFilter(this.productNFT.filters.ProductRecycled())) {
+      this.queueFabricToEthereumTransaction({ type: 'recycling', tokenId: event.args.tokenId.toString() });
     }
+    // Replay committed Fabric events on restart; COT/NFT acknowledgments are idempotent.
+    this.fabricEvents = await this.fabricNetwork.getChaincodeEvents(this.config.fabricContractName || 'supplychain', { startBlock: 0n });
+    this.fabricEventTask = (async () => {
+      for await (const event of this.fabricEvents) {
+        if (this.stopping) break;
+        const payload = JSON.parse(Buffer.from(event.payload).toString());
+        if (event.eventName === 'TokenizationRequested') await this.handleFabricTokenizationRequest({ ...payload, fabricTxId: event.transactionId });
+        else if (event.eventName === 'NFTMintingRequested') await this.handleFabricNFTMintingRequest(payload);
+      }
+    })().catch(error => {
+      if (!this.stopping) {
+        this.streamError = error;
+        logger.error('Fabric event stream stopped', { message: error.message });
+        this.emit('streamFailed', error);
+      }
+    });
   }
 
-  /**
-   * Start the batch timer for processing transactions in batches
-   */
   startBatchTimer() {
+    if (this.stopping || this.batchTimerId) return;
     this.batchTimerId = setTimeout(async () => {
-      try {
-        await this.processBatch();
-      } catch (error) {
-        logger.error(`Error processing batch: ${error.message}`, { error });
-      } finally {
-        this.startBatchTimer(); // Restart timer regardless of success or failure
-      }
+      this.batchTimerId = null;
+      await this.processBatch();
+      this.startBatchTimer();
     }, this.config.batchTimeoutMs);
-
-    logger.info(`Batch timer started with timeout: ${this.config.batchTimeoutMs}ms`);
   }
 
-  /**
-   * Queue a transaction from Fabric to Ethereum
-   * @param {Object} transaction Transaction data
-   */
   queueFabricToEthereumTransaction(transaction) {
-    this.fabricToEthereumQueue.push({
-      ...transaction,
-      timestamp: Date.now(),
-      id: crypto.randomBytes(16).toString('hex')
-    });
-
-    logger.info(`Queued Fabric to Ethereum transaction: ${transaction.type}`, {
-      transactionId: transaction.id,
-      transactionType: transaction.type
-    });
-
-    this.stats.totalFabricToEthereumTx++;
-
-    // Process batch immediately if queue reaches batch size
-    if (this.fabricToEthereumQueue.length >= this.config.batchSize) {
-      clearTimeout(this.batchTimerId);
-      this.processBatch();
-    }
+    if (this.stopping) throw new Error('BRIDGE_STOPPING');
+    if (!['tokenization', 'nftMinting', 'recycling'].includes(transaction.type)) throw new Error('UNKNOWN_BRIDGE_ACTION');
+    this.pendingActions.push(transaction);
+    if (this.pendingActions.length >= this.config.batchSize) void this.processBatch();
   }
 
-  /**
-   * Queue a transaction from Ethereum to Fabric
-   * @param {Object} transaction Transaction data
-   */
-  queueEthereumToFabricTransaction(transaction) {
-    this.ethereumToFabricQueue.push({
-      ...transaction,
-      timestamp: Date.now(),
-      id: crypto.randomBytes(16).toString('hex')
-    });
-
-    logger.info(`Queued Ethereum to Fabric transaction: ${transaction.type}`, {
-      transactionId: transaction.id,
-      transactionType: transaction.type
-    });
-
-    this.stats.totalEthereumToFabricTx++;
-  }
-
-  /**
-   * Process a batch of transactions
-   */
   async processBatch() {
-    if (this.processingBatch || this.fabricToEthereumQueue.length === 0) {
-      logger.info('No transactions to process in batch');
-      return;
-    }
-
-    logger.info(`Processing batch of ${this.fabricToEthereumQueue.length} transactions`);
-
-    this.processingBatch = true;
-    const transactions = this.fabricToEthereumQueue.splice(0);
-    try {
-      // Increment batch ID
-      this.currentBatchId++;
-
-
-      // Create merkle tree from transaction hashes
-      const leaves = transactions.map(tx => this.hashTransaction(tx));
-      this.currentMerkleTree = new MerkleTree(leaves, keccak256, { sort: true });
-      const merkleRoot = this.currentMerkleTree.getHexRoot();
-
-      // Get signatures from validators
-      const signatures = await this.getValidatorSignatures(merkleRoot);
-
-      // Submit batch to Ethereum
-      const tx = await this.sidechainBridge.submitBatch(merkleRoot, signatures);
-      const receipt = await tx.wait(this.config.requiredConfirmations);
-
-      logger.info(`Batch ${this.currentBatchId} submitted to Ethereum`, {
-        batchId: this.currentBatchId,
-        transactionHash: receipt.hash,
-        merkleRoot
-      });
-
-      // Process each transaction in the batch
-      const failedTransactions = await this.processTransactionsInBatch(transactions, this.currentBatchId, this.currentMerkleTree);
-
-      // Update statistics
-      this.stats.totalBatches++;
-
-      // Estimate gas saved through batching
-      const gasSavedEstimate = (transactions.length * 150000) - Number(receipt.gasUsed);
-      this.stats.totalGasSaved += gasSavedEstimate;
-
-      if (failedTransactions > 0) {
-        logger.warn(`Batch ${this.currentBatchId} submitted with ${failedTransactions} failed transactions`, {
-          batchId: this.currentBatchId, failedTransactions, transactionCount: transactions.length
-        });
-        this.emit('batchProcessingFailed', {
-          batchId: this.currentBatchId, failedTransactions, transactionCount: transactions.length
-        });
-      } else {
-        logger.info(`Batch ${this.currentBatchId} processed successfully`, {
-          batchId: this.currentBatchId,
-          transactionCount: transactions.length,
-          gasSaved: gasSavedEstimate
-        });
-        this.emit('batchProcessed', {
-          batchId: this.currentBatchId,
-          transactionCount: transactions.length,
-          merkleRoot
-        });
-      }
-    } catch (error) {
-      // In case of failure, requeue transactions
-      this.fabricToEthereumQueue.unshift(...transactions);
-
-      if (error.code === 'NONCE_EXPIRED') this.transactionSigner?.reset();
-
-      logger.error(`Failed to process batch: ${error.shortMessage || error.message}`, { error });
-
-      // Emit event for failed batch processing
-      this.emit('batchProcessingFailed', {
-        batchId: this.currentBatchId,
-        error: error.message
-      });
-    } finally {
-      this.processingBatch = false;
-    }
+    if (this.processingBatch) return this.processingBatch;
+    if (!this.pendingActions.length) return;
+    this.processingBatch = this.processQueuedTransactions();
+    try { await this.processingBatch; } finally { this.processingBatch = null; }
   }
 
-  /**
-   * Process individual transactions in a batch
-   * @param {Array} transactions Transactions in the batch
-   * @param {number} batchId Batch ID
-   * @param {MerkleTree} merkleTree Merkle tree for the batch
-   */
-  async processTransactionsInBatch(transactions, batchId, merkleTree) {
+  async processQueuedTransactions() {
+    const transactions = this.pendingActions.splice(0, this.config.batchSize);
     let failedTransactions = 0;
-    for (const tx of transactions) {
+    for (const transaction of transactions) {
       try {
-        // Get merkle proof for this transaction
-        const txHash = this.hashTransaction(tx);
-        const proof = merkleTree.getHexProof(txHash);
-
-        // Process transaction based on type
-        switch (tx.type) {
-          case 'tokenization':
-            await this.processTokenizationTransaction(tx, batchId, proof);
-            break;
-          case 'nftMinting':
-            await this.processNFTMintingTransaction(tx, batchId, proof);
-            break;
-          default:
-            logger.warn(`Unknown transaction type: ${tx.type}`, { transactionId: tx.id });
-        }
-
+        if (transaction.type === 'tokenization') await this.processTokenizationTransaction(transaction);
+        else if (transaction.type === 'nftMinting') await this.processNFTMintingTransaction(transaction);
+        else if (transaction.type === 'recycling') await this.handleProductRecycled(BigInt(transaction.tokenId));
+        else throw new Error('UNKNOWN_BRIDGE_ACTION');
         this.stats.successfulFabricToEthereumTx++;
-
-        logger.info(`Transaction processed successfully in batch`, {
-          transactionId: tx.id,
-          transactionType: tx.type,
-          batchId
-        });
       } catch (error) {
-        failedTransactions++;
+        if (error.code === 'NONCE_EXPIRED') this.transactionSigner?.reset();
+        this.pendingActions.push(transaction);
         this.stats.failedFabricToEthereumTx++;
-        this.fabricToEthereumQueue.push(tx);
-
-        logger.error(`Failed to process transaction in batch: ${error.message}`, {
-          error,
-          transactionId: tx.id,
-          transactionType: tx.type,
-          batchId
-        });
+        failedTransactions++;
+        logger.error('Bridge action failed; retained for retry', { type: transaction.type, message: error.shortMessage || error.message });
       }
     }
-    return failedTransactions;
+    this.stats.totalBatches++;
+    this.emit(failedTransactions ? 'batchProcessingFailed' : 'batchProcessed', { transactionCount: transactions.length, failedTransactions });
   }
 
-  /**
-   * Process a tokenization transaction
-   * @param {Object} transaction Transaction data
-   * @param {number} batchId Batch ID
-   * @param {Array} merkleProof Merkle proof for the transaction
-   */
-  async processTokenizationTransaction(transaction, batchId, merkleProof) {
-    if (this.sidechainProvider || this.shouldUseStateChannel(transaction)) {
-      throw new Error('UNVERIFIED_ISSUANCE_PATH_DISABLED');
-    }
-    return this.processTokenizationOnMainnet(transaction, batchId, merkleProof);
-  }
-
-  /**
-   * Process a tokenization transaction on the sidechain
-   * @param {Object} transaction Transaction data
-   * @param {number} batchId Batch ID
-   * @param {Array} merkleProof Merkle proof for the transaction
-   */
-  async processTokenizationOnSidechain(transaction, batchId, merkleProof) {
-    // Implementation of sidechain processing
-    // This would mint tokens on the sidechain first, then relay to mainnet
-
-    logger.info(`Processing tokenization on sidechain`, {
-      transactionId: transaction.id,
-      batchId
-    });
-
-    // Call sidechain contract methods here
-
-    // After successful sidechain processing, update Fabric state
-    await this.fabricContract.submitTransaction(
-      'completeTokenization',
-      transaction.requestId,
-      `sidechain-tx-${batchId}-${transaction.id}`
-    );
-  }
-
-  /**
-   * Process a tokenization transaction on the mainnet
-   * @param {Object} transaction Transaction data
-   * @param {number} batchId Batch ID
-   * @param {Array} merkleProof Merkle proof for the transaction
-   */
-  async processTokenizationOnMainnet(transaction, batchId, merkleProof) {
-    // Implementation of mainnet processing
-
-    logger.info(`Processing tokenization on mainnet`, {
-      transactionId: transaction.id,
-      batchId
-    });
-
-    const { VerifiedRelay } = require('./verified-relay');
+  async processTokenizationTransaction(transaction) {
     return new VerifiedRelay({ token: this.cotToken, fabric: this.fabricContract,
-      confirmations: this.config.requiredConfirmations || 1 }).relay(
-      transaction, transaction.recipient || this.wallet.address);
-
+      confirmations: this.config.requiredConfirmations }).relay(transaction, transaction.recipient || this.wallet.address);
   }
 
-  /**
-   * Process a tokenization transaction via state channel
-   * @param {Object} transaction Transaction data
-   */
-  async processTokenizationViaStateChannel(transaction) {
-    // Implementation of state channel processing
-
-    logger.info(`Processing tokenization via state channel`, {
-      transactionId: transaction.id
-    });
-
-    // Get or create state channel for user
-    const userAddress = transaction.recipient || this.wallet.address;
-    let stateChannel = this.activeStateChannels.get(userAddress);
-
-    if (!stateChannel) {
-      // Open new state channel
-      stateChannel = await this.openStateChannel(userAddress);
-    }
-
-    // Update state channel state with new transaction
-    stateChannel.pendingAmount += parseFloat(transaction.quantity);
-    stateChannel.transactions.push(transaction);
-
-    // Save updated state channel
-    this.activeStateChannels.set(userAddress, stateChannel);
-
-    // Reset state channel timer
-    if (this.stateChannelTimers.has(userAddress)) {
-      clearTimeout(this.stateChannelTimers.get(userAddress));
-    }
-
-    // Set timer to close state channel after timeout
-    const timerId = setTimeout(async () => {
-      await this.closeStateChannel(userAddress);
-    }, this.config.stateChannelTimeoutMs);
-
-    this.stateChannelTimers.set(userAddress, timerId);
-
-    // Update Fabric state to indicate state channel processing
-    await this.fabricContract.submitTransaction(
-      'updateTokenizationStatus',
-      transaction.requestId,
-      'STATE_CHANNEL_PENDING',
-      JSON.stringify({
-        stateChannelId: stateChannel.id,
-        pendingAmount: stateChannel.pendingAmount
-      })
-    );
-
-    this.stats.totalStateChannelTx++;
-  }
-
-  /**
-   * Process an NFT minting transaction
-   * @param {Object} transaction Transaction data
-   * @param {number} batchId Batch ID
-   * @param {Array} merkleProof Merkle proof for the transaction
-   */
-  async processNFTMintingTransaction(transaction, batchId, merkleProof) {
-    try {
-      logger.info(`Processing NFT minting transaction`, {
-        transactionId: transaction.id,
-        batchId
-      });
-
-      // Mint NFT on Ethereum
-      const tx = await this.productNFT.mintProduct(
-        transaction.recipient || this.wallet.address,
-        transaction.fabricProductId,
-        transaction.productType,
-        transaction.manufacturer,
-        transaction.metadataURI,
-        transaction.metadataURI,
-        transaction.cottonBatchIds
-      );
-
+  async processNFTMintingTransaction(transaction) {
+    const productId = transaction.fabricProductId || transaction.productId;
+    if (!productId || productId !== transaction.productId || !ethers.isAddress(transaction.recipient)) throw new Error('INVALID_NFT_EVENT');
+    let tokenId = await this.productNFT.fabricToTokenId(productId);
+    if (tokenId === 0n) {
+      const tx = await this.productNFT.mintProduct(transaction.recipient, productId, transaction.productType,
+        transaction.manufacturer, transaction.metadataURI, transaction.metadataURI, transaction.cottonBatchIds);
       const receipt = await tx.wait(this.config.requiredConfirmations);
-
-      // Get token ID from event
-      const mintEvent = receipt.logs.find(e => e.fragment?.name === 'ProductMinted');
-      if (!mintEvent) throw new Error('ProductMinted event missing from Ethereum receipt');
-      const tokenId = mintEvent.args.tokenId.toString();
-
-      // After successful Ethereum processing, update Fabric state
-      await this.fabricContract.submitTransaction(
-        'mintNFT',
-        transaction.productId,
-        tokenId
-      );
-
-      logger.info(`NFT minted successfully`, {
-        transactionId: transaction.id,
-        tokenId,
-        transactionHash: receipt.hash
-      });
-    } catch (error) {
-      logger.error(`Failed to process NFT minting transaction: ${error.message}`, {
-        error,
-        transactionId: transaction.id
-      });
-      throw error;
+      if (!receipt || receipt.status !== 1) throw new Error('NFT_MINT_NOT_CONFIRMED');
+      tokenId = await this.productNFT.fabricToTokenId(productId);
     }
+    // Validate the immutable mint, not the current owner (the NFT may have been transferred).
+    const mints = await this.productNFT.queryFilter(this.productNFT.filters.Transfer(ethers.ZeroAddress, transaction.recipient, tokenId));
+    if (tokenId === 0n || mints.length !== 1 || await this.productNFT.tokenURI(tokenId) !== transaction.metadataURI) throw new Error('NFT_RECONCILIATION_MISMATCH');
+    const data = await this.productNFT.productData(tokenId);
+    if (data.fabricProductId !== productId || data.productType !== transaction.productType || data.manufacturer !== transaction.manufacturer) throw new Error('NFT_RECONCILIATION_MISMATCH');
+    const receipt = await mints[0].getTransactionReceipt();
+    if (!receipt || receipt.status !== 1) throw new Error('NFT_MINT_NOT_CONFIRMED');
+    await this.productNFT.runner.provider.waitForTransaction(receipt.hash, this.config.requiredConfirmations);
+    await this.fabricContract.submitTransaction('mintNFT', transaction.productId, tokenId.toString());
+    return { tokenId: tokenId.toString(), transactionHash: receipt.hash };
   }
 
-  /**
-   * Get signatures from validators for a message hash
-   * @param {string} messageHash Hash to be signed
-   * @return {Array} Array of validator signatures
-   */
-  async getValidatorSignatures(messageHash) {
-    // In a production environment, this would request signatures from the validators
-    // For this implementation, we'll simulate signatures from the configured validators
-
-    const signatures = [];
-
-    // Use predefined validator private keys for signing
-    for (const validator of this.validators) {
-      // Create a wallet from validator private key
-      const validatorWallet = new ethers.Wallet(validator.privateKey);
-
-      // Sign the message hash
-      const signature = await validatorWallet.signMessage(ethers.getBytes(messageHash));
-
-      signatures.push(signature);
-    }
-
-    logger.info(`Got ${signatures.length} validator signatures`);
-    return signatures;
-  }
-
-  /**
-   * Get validators from the bridge contract
-   * @return {Array} Array of validator information
-   */
-  async getValidators() {
-    // In a real implementation, this would query the bridge contract for validator addresses
-    // For this implementation, we'll use the configured validators
-
-    return this.config.validators || [];
-  }
-
-  /**
-   * Open a state channel for a user
-   * @param {string} userAddress User's Ethereum address
-   * @return {Object} State channel information
-   */
-  async openStateChannel(userAddress) {
-    const channelId = crypto.randomBytes(16).toString('hex');
-
-    const stateChannel = {
-      id: channelId,
-      userAddress,
-      openedAt: Date.now(),
-      pendingAmount: 0,
-      transactions: []
-    };
-
-    logger.info(`Opened state channel for user`, {
-      channelId,
-      userAddress
-    });
-
-    return stateChannel;
-  }
-
-  /**
-   * Close a state channel and settle on Ethereum
-   * @param {string} userAddress User's Ethereum address
-   */
-  async closeStateChannel(userAddress) {
-    const stateChannel = this.activeStateChannels.get(userAddress);
-
-    if (!stateChannel) {
-      logger.warn(`No active state channel found for user`, { userAddress });
-      return;
-    }
-
-    try {
-      logger.info(`Closing state channel for user`, {
-        channelId: stateChannel.id,
-        userAddress,
-        pendingAmount: stateChannel.pendingAmount,
-        transactionCount: stateChannel.transactions.length
-      });
-
-      // Process all transactions in the state channel
-      if (stateChannel.pendingAmount > 0) {
-        // Mint tokens on Ethereum in one transaction
-        const tx = await this.cotToken.mint(
-          userAddress,
-          ethers.parseEther(stateChannel.pendingAmount.toString())
-        );
-
-        const receipt = await tx.wait(this.config.requiredConfirmations);
-
-        // Update Fabric state for all transactions in the channel
-        for (const transaction of stateChannel.transactions) {
-          await this.fabricContract.submitTransaction(
-            'completeTokenization',
-            transaction.requestId,
-            receipt.hash
-          );
-        }
-
-        logger.info(`State channel settled successfully`, {
-          channelId: stateChannel.id,
-          userAddress,
-          pendingAmount: stateChannel.pendingAmount,
-          transactionHash: receipt.hash
-        });
-      }
-
-      // Clean up state channel
-      this.activeStateChannels.delete(userAddress);
-
-      if (this.stateChannelTimers.has(userAddress)) {
-        clearTimeout(this.stateChannelTimers.get(userAddress));
-        this.stateChannelTimers.delete(userAddress);
-      }
-    } catch (error) {
-      logger.error(`Failed to close state channel: ${error.message}`, {
-        error,
-        channelId: stateChannel.id,
-        userAddress
-      });
-
-      // Requeue transactions in case of failure
-      for (const transaction of stateChannel.transactions) {
-        this.queueFabricToEthereumTransaction(transaction);
-      }
-    }
-  }
-
-  /**
-   * Determine if a transaction should use state channel
-   * @param {Object} transaction Transaction data
-   * @return {boolean} Whether to use state channel
-   */
-  shouldUseStateChannel(transaction) {
-    // Use state channels for small transactions to save gas
-    return (
-      transaction.type === 'tokenization' &&
-      parseFloat(transaction.quantity) <= this.config.stateChannelThreshold
-    );
-  }
-
-  /**
-   * Hash a transaction for inclusion in merkle tree
-   * @param {Object} transaction Transaction data
-   * @return {Buffer} Transaction hash
-   */
-  hashTransaction(transaction) {
-    const txString = JSON.stringify({
-      id: transaction.id,
-      type: transaction.type,
-      timestamp: transaction.timestamp,
-      data: transaction
-    });
-
-    return keccak256(txString);
-  }
-
-  // Event handlers for Ethereum events
-
-  /**
-   * Handle BatchSubmitted event from Ethereum
-   */
-  async handleBatchSubmitted(batchId, merkleRoot, timestamp, event) {
-    logger.info(`Received BatchSubmitted event from Ethereum`, {
-      batchId: batchId.toString(),
-      merkleRoot,
-      timestamp: timestamp.toString()
-    });
-  }
-
-  /**
-   * Handle TokensLockedForSidechain event from Ethereum
-   */
-  async handleTokensLocked(user, amount, txHash, event) {
-    logger.info(`Received TokensLockedForSidechain event from Ethereum`, {
-      user,
-      amount: amount.toString(),
-      txHash
-    });
-
-    // Queue transaction to Fabric
-    this.queueEthereumToFabricTransaction({
-      type: 'tokenLock',
-      user,
-      amount: ethers.formatEther(amount),
-      txHash,
-      ethereumTxHash: event.log.transactionHash
-    });
-  }
-
-  /**
-   * Handle NFTLockedForSidechain event from Ethereum
-   */
-  async handleNFTLocked(user, tokenId, txHash, event) {
-    logger.info(`Received NFTLockedForSidechain event from Ethereum`, {
-      user,
-      tokenId: tokenId.toString(),
-      txHash
-    });
-
-    // Queue transaction to Fabric
-    this.queueEthereumToFabricTransaction({
-      type: 'nftLock',
-      user,
-      tokenId: tokenId.toString(),
-      txHash,
-      ethereumTxHash: event.log.transactionHash
-    });
-  }
-
-  /**
-   * Handle TokensReleasedFromSidechain event from Ethereum
-   */
-  async handleTokensReleased(user, amount, txHash, event) {
-    logger.info(`Received TokensReleasedFromSidechain event from Ethereum`, {
-      user,
-      amount: amount.toString(),
-      txHash
-    });
-  }
-
-  /**
-   * Handle NFTReleasedFromSidechain event from Ethereum
-   */
-  async handleNFTReleased(user, tokenId, txHash, event) {
-    logger.info(`Received NFTReleasedFromSidechain event from Ethereum`, {
-      user,
-      tokenId: tokenId.toString(),
-      txHash
-    });
-  }
-
-  // Event handlers for Fabric
-
-  /**
-   * Handle tokenization request from Fabric
-   * @param {Object} payload Event payload
-   */
   async handleFabricTokenizationRequest(payload) {
-    logger.info(`Received tokenization request from Fabric`, {
-      requestId: payload.requestId,
-      batchId: payload.batchId,
-      quantity: payload.quantity
-    });
-
-    // Queue transaction to Ethereum
-    this.queueFabricToEthereumTransaction({
-      type: 'tokenization',
-      fabricTxId: payload.fabricTxId,
-      requestId: payload.requestId,
-      batchId: payload.batchId,
-      quantity: payload.quantity,
-      warehouseId: payload.warehouseId,
-      recipient: payload.recipient
-    });
+    this.queueFabricToEthereumTransaction({ ...payload, type: 'tokenization' });
   }
 
-  /**
-   * Handle NFT minting request from Fabric
-   * @param {Object} payload Event payload
-   */
   async handleFabricNFTMintingRequest(payload) {
-    logger.info(`Received NFT minting request from Fabric`, {
-      productId: payload.productId,
-      productType: payload.productType,
-      manufacturer: payload.manufacturer
-    });
-
-    // Queue transaction to Ethereum
-    this.queueFabricToEthereumTransaction({
-      type: 'nftMinting',
-      productId: payload.productId,
-      fabricProductId: payload.productId,
-      productType: payload.productType,
-      manufacturer: payload.manufacturer,
-      cottonBatchIds: payload.cottonBatchIds,
-      metadataURI: payload.metadataURI,
-      recipient: payload.recipient
-    });
+    this.queueFabricToEthereumTransaction({ ...payload, fabricProductId: payload.productId, type: 'nftMinting' });
   }
 
   async handleProductRecycled(tokenId) {
-    try {
-      const product = await this.productNFT.productData(tokenId);
-      await this.fabricContract.submitTransaction('updateStatus', product.fabricProductId,
-        'RECYCLING_INITIATED', Date.now().toString(), '{}');
-      logger.info('Product recycling recorded on Fabric', {
-        productId: product.fabricProductId, tokenId: tokenId.toString()
-      });
-    } catch (error) {
-      logger.error(`Failed to record product recycling on Fabric: ${error.message}`, { error });
-    }
+    const product = await this.productNFT.productData(tokenId);
+    if (!product.recycled) throw new Error('PRODUCT_NOT_RECYCLED');
+    const logs = await this.productNFT.queryFilter(this.productNFT.filters.ProductRecycled(tokenId));
+    if (logs.length !== 1) throw new Error('RECYCLING_RECEIPT_MISMATCH');
+    const receipt = await logs[0].getTransactionReceipt();
+    if (!receipt || receipt.status !== 1) throw new Error('RECYCLING_NOT_CONFIRMED');
+    await this.productNFT.runner.provider.waitForTransaction(receipt.hash, this.config.requiredConfirmations);
+    await this.fabricContract.submitTransaction('recordRecycling', product.fabricProductId, tokenId.toString(), receipt.hash);
   }
 
-  /**
-   * Process Ethereum to Fabric transaction queue
-   */
-  async processEthereumToFabricQueue() {
-    if (this.ethereumToFabricQueue.length === 0) {
-      return;
-    }
-
-    logger.info(`Processing ${this.ethereumToFabricQueue.length} Ethereum to Fabric transactions`);
-
-    // Process each transaction
-    const transactions = [...this.ethereumToFabricQueue];
-    this.ethereumToFabricQueue = [];
-
-    for (const tx of transactions) {
-      try {
-        switch (tx.type) {
-          case 'tokenLock':
-            await this.processFabricTokenLock(tx);
-            break;
-          case 'nftLock':
-            await this.processFabricNFTLock(tx);
-            break;
-          default:
-            logger.warn(`Unknown transaction type: ${tx.type}`, { transactionId: tx.id });
-        }
-
-        this.stats.successfulEthereumToFabricTx++;
-
-        logger.info(`Transaction processed successfully`, {
-          transactionId: tx.id,
-          transactionType: tx.type
-        });
-      } catch (error) {
-        this.stats.failedEthereumToFabricTx++;
-
-        // Requeue failed transactions
-        this.ethereumToFabricQueue.push(tx);
-
-        logger.error(`Failed to process transaction: ${error.message}`, {
-          error,
-          transactionId: tx.id,
-          transactionType: tx.type
-        });
-      }
-    }
-  }
-
-  /**
-   * Process token lock on Fabric
-   * @param {Object} transaction Transaction data
-   */
-  async processFabricTokenLock(transaction) {
-    logger.info(`Processing token lock on Fabric`, {
-      user: transaction.user,
-      amount: transaction.amount,
-      txHash: transaction.txHash
-    });
-
-    // Call Fabric chaincode to record token lock
-    await this.fabricContract.submitTransaction(
-      'recordTokenLock',
-      transaction.user,
-      transaction.amount,
-      transaction.txHash,
-      transaction.ethereumTxHash
-    );
-  }
-
-  /**
-   * Process NFT lock on Fabric
-   * @param {Object} transaction Transaction data
-   */
-  async processFabricNFTLock(transaction) {
-    logger.info(`Processing NFT lock on Fabric`, {
-      user: transaction.user,
-      tokenId: transaction.tokenId,
-      txHash: transaction.txHash
-    });
-
-    // Call Fabric chaincode to record NFT lock
-    await this.fabricContract.submitTransaction(
-      'recordNFTLock',
-      transaction.user,
-      transaction.tokenId,
-      transaction.txHash,
-      transaction.ethereumTxHash
-    );
-  }
-
-  /**
-   * Get bridge statistics
-   * @return {Object} Bridge statistics
-   */
   getStats() {
-    return {
-      ...this.stats,
-      activeStateChannels: this.activeStateChannels.size,
-      pendingFabricToEthereumTx: this.fabricToEthereumQueue.length,
-      pendingEthereumToFabricTx: this.ethereumToFabricQueue.length,
-      gasSavedInETH: ethers.formatEther(BigInt(this.stats.totalGasSaved) * BigInt(this.config.averageGasPrice ?? 50e9)) // 50 gwei default
-    };
+    return { ...this.stats, pendingTransactions: this.pendingActions.length, healthy: !this.streamError && !this.stopping };
   }
 
-  /**
-   * Stop the bridge
-   */
   async stop() {
-    try {
-      logger.info('Stopping OptimizedBridge...');
-
-      // Clear batch timer
-      if (this.batchTimerId) {
-        clearTimeout(this.batchTimerId);
-      }
-
-      // Process any remaining transactions
-      await this.processBatch();
-      await this.processEthereumToFabricQueue();
-
-      // Close all active state channels
-      for (const [userAddress, _] of this.activeStateChannels) {
-        await this.closeStateChannel(userAddress);
-      }
-
-      // Clear all state channel timers
-      for (const [userAddress, timerId] of this.stateChannelTimers) {
-        clearTimeout(timerId);
-      }
-
-      // Disconnect from Fabric
-      this.stopping = true;
-      this.fabricEvents?.close();
-      await this.fabricEventTask;
-      if (this.fabricGateway) {
-        await this.fabricGateway.disconnect();
-      }
-
-      for (const contract of [this.sidechainBridge, this.cotToken, this.productNFT]) {
-        if (contract) await contract.removeAllListeners();
-      }
-      this.provider?.destroy();
-      this.sidechainProvider?.destroy();
-      logger.info('OptimizedBridge stopped successfully');
-      return true;
-    } catch (error) {
-      logger.error(`Error stopping bridge: ${error.message}`, { error });
-      throw error;
-    }
+    this.stopping = true;
+    clearTimeout(this.batchTimerId);
+    this.fabricEvents?.close();
+    await this.fabricEventTask;
+    await this.processingBatch;
+    // Unprocessed work is reconstructed from committed ledger events on restart.
+    await this.fabricGateway?.disconnect();
+    await this.productNFT?.removeAllListeners();
+    this.provider?.destroy();
   }
 }
 
-module.exports = OptimizedBridge;
+module.exports = VerifiedBridge;

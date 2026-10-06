@@ -1,3 +1,8 @@
+process.env.JWT_SECRET = 'isolated-api-test-secret-at-least-32-bytes';
+process.env.API_READ_KEY = 'isolated-test-reader-key';
+process.env.API_ADMIN_KEY = 'isolated-test-admin-key';
+process.env.ADMIN_USERNAME = 'admin';
+process.env.ADMIN_PASSWORD = 'isolated-login-password';
 const request = require('supertest');
 // Load EJS before the scoped filesystem spy; it captures fs.readFileSync at import.
 require('ejs');
@@ -10,7 +15,7 @@ jest.mock('../../../bridging/fabric-client', () => ({ connectToFabric: jest.fn()
 const mockContract = { evaluateTransaction: jest.fn(), submitTransaction: jest.fn() };
 const mockGateway = { connect: jest.fn(), getNetwork: jest.fn(), disconnect: jest.fn() };
 let profileRead;
-const token = role => jwt.sign({ id: 'test', role }, 'sustainablefashionchain-jwt-secret');
+const token = role => jwt.sign({ id: 'test', role }, require('../config/auth').jwtSecret('ledger'));
 beforeEach(() => {
   jest.clearAllMocks();
   connectToFabric.mockResolvedValue({ gateway: mockGateway, contract: mockContract });
@@ -63,13 +68,13 @@ test('public verification handles products without a materials array', async () 
 test('login and authenticated dashboard templates render', async () => {
   const agent = request.agent(app);
   await agent.get('/login').expect(200).expect(/Username/);
-  await agent.post('/login').type('form').send({ username: 'admin', password: 'password' }).expect(302).expect('Location', '/dashboard');
+  await agent.post('/login').type('form').send({ username: 'admin', password: 'isolated-login-password' }).expect(302).expect('Location', '/dashboard');
   await agent.get('/dashboard').expect(200).expect(/Administrator/);
 });
 
 test('product lookup failure also releases its gateway', async () => {
-  mockContract.evaluateTransaction.mockRejectedValue(new Error('Product missing'));
-  await request(app).get('/api/v1/products/missing').set('Authorization', `Bearer ${token('reader')}`).expect(500);
+  mockContract.evaluateTransaction.mockRejectedValue(new Error('PRODUCT_NOT_FOUND'));
+  await request(app).get('/api/v1/products/missing').set('Authorization', `Bearer ${token('reader')}`).expect(404);
   expect(mockGateway.disconnect).toHaveBeenCalledTimes(1);
 });
 
@@ -160,7 +165,7 @@ test('approved cotton tokenization emits a bridge event with stored batch data',
   expect(JSON.parse(setEvent.mock.calls[0][1].toString())).toEqual({
     requestId: requested.body.requestID, batchId, quantity: 3, warehouseId: 'WH-1',
   });
-  await request(app).post(`/api/v1/tokenize/${requested.body.requestID}/approve`).set(auth).expect(503);
+  await request(app).post(`/api/v1/tokenize/${requested.body.requestID}/approve`).set(auth).expect(409);
   expect(setEvent).toHaveBeenCalledTimes(1);
 });
 
@@ -204,7 +209,25 @@ test('finished product requests an NFT and records its Ethereum token ID', async
     productId: 'SHIRT-NFT', recipient: ownerAddress, cottonBatchIds: ['COTTON-NFT'],
   });
 
+  await expect(contract.submitTransaction('mintNFT', 'SHIRT-NFT', '42')).rejects.toThrow('BRIDGE_REQUIRED');
+  // A separate bridge identity acknowledges the confirmed Ethereum mint.
+  context.clientIdentity = { getID: () => 'test-bridge', assertAttributeValue: (name, role) => role === 'bridge' };
   await contract.submitTransaction('mintNFT', 'SHIRT-NFT', '42');
   const product = await request(app).get('/api/v1/products/SHIRT-NFT').set(auth).expect(200);
   expect(product.body).toMatchObject({ status: 'TOKENIZED', nftTokenId: '42' });
+});
+
+
+test('published prototype keys and tokens cannot grant administrative access', async () => {
+  for (const key of ['test-api-key', 'admin-api-key']) {
+    await request(app).post('/api/v1/token').set('x-api-key', key).expect(401);
+  }
+  const forged = jwt.sign({ id: 'attacker', role: 'admin' }, 'sustainablefashionchain-jwt-secret');
+  await request(app).post('/api/v1/products').set('Authorization', `Bearer ${forged}`).send({}).expect(401);
+  const mobile = jwt.sign({ id: 'attacker', role: 'admin' }, require('../config/auth').jwtSecret('mobile'));
+  await request(app).post('/api/v1/products').set('Authorization', `Bearer ${mobile}`).send({}).expect(401);
+  await request(app).post('/api/v1/token').set('x-api-key', process.env.API_READ_KEY).expect(200);
+  const agent = request.agent(app);
+  await agent.post('/login').type('form').send({ username: 'admin', password: 'password' }).expect(200);
+  await agent.get('/dashboard').expect(302).expect('Location', '/login');
 });

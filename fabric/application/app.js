@@ -12,6 +12,7 @@ const cookieParser = require("cookie-parser");
 const session = require("express-session");
 const morgan = require("morgan");
 const WebSocket = require('ws');
+const { jwtSecret, credentialsMatch } = require('./config/auth');
 
 // Import middleware
 const { authenticateToken } = require('./middleware/auth');
@@ -45,9 +46,9 @@ app.use(morgan('dev')); // Logging
 
 // Session configuration
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'sustainablefashionchain-session-secret',
+    secret: process.env.SESSION_SECRET || jwtSecret('session'),
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false,
     cookie: { secure: process.env.NODE_ENV === 'production' }
 }));
 
@@ -106,12 +107,11 @@ app.post("/login", async (req, res) => {
     try {
         const { username, password } = req.body;
 
-        // In a real application, this would authenticate against a database
-        // For demo purposes, we'll use a simple hardcoded check
-        if (username === 'admin' && password === 'password') {
+        if (credentialsMatch(username, process.env.ADMIN_USERNAME) &&
+            credentialsMatch(password, process.env.ADMIN_PASSWORD)) {
             req.session.user = {
                 id: 'admin-user',
-                username: 'admin',
+                username,
                 role: 'admin',
                 name: 'Administrator'
             };

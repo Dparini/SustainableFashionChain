@@ -65,4 +65,48 @@ describe('Fabric RWA verification boundary', () => {
     assert.equal(await cc.completeTokenization(ctx, 'r', tx), completed);
     await assert.rejects(cc.completeTokenization(ctx, 'r', '0x' + 'd'.repeat(64)), /not in APPROVED/);
   });
+  it('NFT and recycling acknowledgments require a bridge and cannot overwrite provenance', async () => {
+    await verified(); role = 'producer';
+    await cc.createFinishedProduct(ctx, 'shirt', 'finished', 'maker', '["b"]', '2026-10-06');
+    await assert.rejects(cc.mintNFT(ctx, 'shirt', '42'), /BRIDGE_REQUIRED/);
+    await assert.rejects(cc.updateStatus(ctx, 'shirt', 'TOKENIZED', '', '{"nftTokenId":"42"}'), /USE_PRODUCT_STATE_MACHINE/);
+    role = 'bridge';
+    await assert.rejects(cc.mintNFT(ctx, 'shirt', '42'), /NFT_ACKNOWLEDGMENT_MISMATCH/);
+    role = 'producer';
+    await cc.requestNFTMinting(ctx, 'shirt', '0x' + '1'.repeat(40), 'ipfs://shirt');
+    role = 'bridge';
+    const minted = await cc.mintNFT(ctx, 'shirt', '42');
+    assert.equal(await cc.mintNFT(ctx, 'shirt', '42'), minted);
+    await assert.rejects(cc.mintNFT(ctx, 'shirt', '43'), /NFT_ACKNOWLEDGMENT_MISMATCH/);
+    role = 'producer';
+    const tx = '0x' + 'c'.repeat(64);
+    await assert.rejects(cc.recordRecycling(ctx, 'shirt', '42', tx), /BRIDGE_REQUIRED/);
+    role = 'bridge';
+    await assert.rejects(cc.recordRecycling(ctx, 'shirt', '43', tx), /NFT_ACKNOWLEDGMENT_MISMATCH/);
+    const recycled = await cc.recordRecycling(ctx, 'shirt', '42', tx);
+    assert.equal(await cc.recordRecycling(ctx, 'shirt', '42', tx), recycled);
+    assert.equal(JSON.parse(recycled).status, 'RECYCLING_INITIATED');
+    // A late mint acknowledgment must preserve a later recycling transition.
+    assert.equal(await cc.mintNFT(ctx, 'shirt', '42'), recycled);
+  });
+
+  it('ledger queries close iterators, exclude requests from products and reject corrupt records', async () => {
+    let closed = 0;
+    const entries = [{ type: 'finished', id: 'shirt' }, { id: 'request', status: 'APPROVED', batchId: 'b' }];
+    ctx.stub.getStateByRange = async () => {
+      let index = 0;
+      return { next: async () => index < entries.length
+        ? { done: false, value: { key: String(index), value: Buffer.from(JSON.stringify(entries[index++])) } }
+        : { done: true }, close: async () => { closed++; } };
+    };
+    assert.deepEqual(JSON.parse(await cc.queryAllProducts(ctx)), [entries[0]]);
+    assert.deepEqual(JSON.parse(await cc.queryApprovedTokenizationRequests(ctx)), [entries[1]]);
+    ctx.stub.getStateByRange = async () => ({
+      next: async () => ({ done: false, value: { key: 'corrupt', value: Buffer.from('{broken') } }),
+      close: async () => { closed++; },
+    });
+    await assert.rejects(cc.queryAllProducts(ctx), /INVALID_LEDGER_RECORD: corrupt/);
+    assert.equal(closed, 3);
+  });
+
 });

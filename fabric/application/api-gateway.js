@@ -17,6 +17,23 @@ const { connectToFabric } = require('../../bridging/fabric-client');
 const path = require('path');
 const fs = require('fs');
 
+// Stable domain failures are client errors; transport failures do not disclose internals.
+function sendLedgerError(res, error) {
+    const statuses = {
+        PRODUCT_NOT_FOUND: 404, TOKENIZATION_NOT_PENDING: 409,
+        BRIDGE_REQUIRED: 403, CERTIFIER_REQUIRED: 403,
+        RECORD_ALREADY_EXISTS: 409, BATCH_ALREADY_EXISTS: 409,
+        REQUEST_ALREADY_EXISTS: 409, TOKENIZATION_ALREADY_PENDING: 409,
+        INVALID_COTTON_BATCH: 400, INVALID_CERTIFICATION_HASH: 400,
+        VERIFIED_BACKING_REQUIRED: 409, WAREHOUSE_MISMATCH: 409,
+        USE_COTTON_STATE_MACHINE: 409, USE_PRODUCT_STATE_MACHINE: 409,
+        PROTECTED_RWA_FIELDS: 400, NFT_ACKNOWLEDGMENT_MISMATCH: 409,
+    };
+    const message = String(error.message || '');
+    const code = Object.keys(statuses).find(key => new RegExp(`\\b${key}\\b`).test(message));
+    return res.status(code ? statuses[code] : 503).json({ error: code || 'LEDGER_UNAVAILABLE' });
+}
+
 // Create API router
 const apiRouter = express.Router();
 
@@ -39,19 +56,15 @@ const ccpPath = path.resolve(__dirname, '..', 'network', 'organizations', 'peerO
 const walletPath = path.join(__dirname, 'wallet');
 
 // API keys for authentication (in a real system, this would be in a database)
-const apiKeys = {
-    'test-api-key': {
-        id: 'test-client',
-        role: 'reader'
-    },
-    'admin-api-key': {
-        id: 'admin-client',
-        role: 'admin'
-    }
-};
+const apiKeys = Object.create(null);
+for (const [key, role] of [[process.env.API_READ_KEY, 'reader'], [process.env.API_ADMIN_KEY, 'admin']]) {
+    if (!key) continue;
+    if (key.length < 16 || Object.hasOwn(apiKeys, key)) throw new Error('INVALID_API_KEY_CONFIGURATION');
+    apiKeys[key] = { id: `${role}-client`, role };
+}
 
 // JWT secret (in a real system, this would be an environment variable)
-const JWT_SECRET = 'sustainablefashionchain-jwt-secret';
+const JWT_SECRET = require('./config/auth').jwtSecret('ledger');
 const JWT_EXPIRY = '1h';
 
 // Middleware for API key authentication
@@ -137,7 +150,7 @@ apiRouter.get('/batches', authenticateJwt, async (req, res) => {
         res.status(200).json(batches);
     } catch (error) {
         console.error(`Error querying batches: ${error}`);
-        res.status(500).json({ error: error.message });
+        sendLedgerError(res, error);
     } finally {
         connection?.gateway.disconnect();
     }
@@ -158,7 +171,7 @@ apiRouter.get('/batches/:id', authenticateJwt, async (req, res) => {
         res.status(200).json(batch);
     } catch (error) {
         console.error(`Error getting batch: ${error}`);
-        res.status(500).json({ error: error.message });
+        sendLedgerError(res, error);
     } finally {
         connection?.gateway.disconnect();
     }
@@ -188,7 +201,7 @@ apiRouter.post('/batches', authenticateJwt, requireRole('admin'), async (req, re
         res.status(201).json({ message: 'Batch created successfully', id });
     } catch (error) {
         console.error(`Error creating batch: ${error}`);
-        res.status(500).json({ error: error.message });
+        sendLedgerError(res, error);
     } finally {
         connection?.gateway.disconnect();
     }
@@ -206,7 +219,7 @@ apiRouter.post('/batches/:id/store', authenticateJwt, requireRole('admin'), asyn
         res.status(200).json({ batch });
     } catch (error) {
         console.error('Error storing batch:', error);
-        res.status(503).json({ error: error.message });
+        sendLedgerError(res, error);
     } finally {
         connection?.gateway.disconnect();
     }
@@ -223,7 +236,7 @@ apiRouter.post('/batches/:id/verify', authenticateJwt, requireRole('admin'), asy
             'verifyCottonBatch', req.params.id, req.body.certificationHash)).toString());
         res.status(200).json({ batch });
     } catch (error) {
-        res.status(503).json({ error: error.message });
+        sendLedgerError(res, error);
     } finally {
         connection?.gateway.disconnect();
     }
@@ -292,7 +305,7 @@ apiRouter.post('/finished-products', authenticateJwt, requireRole('admin'), asyn
         res.status(201).json({ product });
     } catch (error) {
         console.error('Error creating finished product:', error);
-        res.status(503).json({ error: error.message });
+        sendLedgerError(res, error);
     } finally {
         connection?.gateway.disconnect();
     }
@@ -314,7 +327,7 @@ apiRouter.get('/products', authenticateJwt, async (req, res) => {
         res.status(200).json(products);
     } catch (error) {
         console.error(`Error querying products: ${error}`);
-        res.status(500).json({ error: error.message });
+        sendLedgerError(res, error);
     } finally {
         connection?.gateway.disconnect();
     }
@@ -335,7 +348,7 @@ apiRouter.get('/products/:id', authenticateJwt, async (req, res) => {
         res.status(200).json(product);
     } catch (error) {
         console.error(`Error getting product: ${error}`);
-        res.status(500).json({ error: error.message });
+        sendLedgerError(res, error);
     } finally {
         connection?.gateway.disconnect();
     }
@@ -402,7 +415,7 @@ apiRouter.post('/tokenize', authenticateJwt, requireRole('admin'), async (req, r
         res.status(201).json({ message: 'Tokenization requested successfully', requestID });
     } catch (error) {
         console.error(`Error requesting tokenization: ${error}`);
-        res.status(500).json({ error: error.message });
+        sendLedgerError(res, error);
     } finally {
         connection?.gateway.disconnect();
     }
@@ -417,7 +430,7 @@ apiRouter.post('/tokenize/:requestId/approve', authenticateJwt, requireRole('adm
         res.status(200).json({ request });
     } catch (error) {
         console.error('Error approving tokenization:', error);
-        res.status(503).json({ error: error.message });
+        sendLedgerError(res, error);
     } finally {
         connection?.gateway.disconnect();
     }
@@ -440,7 +453,7 @@ const requestNFTMinting = async (req, res) => {
         res.status(202).json({ message: 'NFT minting requested', product });
     } catch (error) {
         console.error('Error requesting NFT mint:', error);
-        res.status(503).json({ error: error.message });
+        sendLedgerError(res, error);
     } finally {
         connection?.gateway.disconnect();
     }

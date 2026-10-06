@@ -156,8 +156,10 @@ The live runner generates its own CA identities, wallet and connection profile.
 [VerifiedRelay](bridging/verified-relay.js) transports approved COT events and
 recovers already-mined receipts when Fabric acknowledgment fails. The existing
 [NFT and recycling handlers](bridging/bridge.js) connect garment records with
-Ethereum events. NFT recovery is not the same protocol as COT receipt reconciliation.
-Legacy state-channel and sidechain experiments are outside the verified issuance path.
+Ethereum events. COT and NFT retries reconcile confirmed mint receipts without issuing another asset.
+Recycling acknowledgments require the Fabric bridge role and are idempotent.
+The runtime contains only these supported routes; queued actions retry after failures,
+and committed events are replayed on restart. Historical replay currently scans from genesis.
 
 ## Testing
 

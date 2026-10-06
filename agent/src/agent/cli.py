@@ -5,9 +5,7 @@ from pathlib import Path
 from .audit import append_record, plain, record
 from .data.market import demo_state, load_state
 from .agents.risk import RiskAgent
-from .agents.allocator import AllocatorAgent
 from .policy.models import Action
-from .policy.engine import PolicyEngine
 from .pipeline import decide
 from .benchmark import benchmark
 
