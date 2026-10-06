@@ -128,3 +128,10 @@ blockchain boundaries, and the small bounded agent extension. The backing/replay
 oracle controls and agent package already exist; this refinement demonstrates
 NFT/recycling through existing bridge handlers rather than adding agent features.
 No further feature expansion is planned beyond verification and maintenance.
+
+- Lifecycle fixture E2E, live Fabric E2E and Docker Compose passed with garment NFT
+  mint and recycling acknowledgment. The lifecycle video is 79.95 seconds.
+- New dependency advisories were detected by the published CI audit and corrected
+  with source-map-js 1.2.2 and the scoped YAML parser override. A clean backend
+  npm ci, 13 backend tests with coverage, 19 compatibility/boundary tests and 18
+  frontend tests/build passed. All six npm audits report zero vulnerabilities.

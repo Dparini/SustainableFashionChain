@@ -58,5 +58,10 @@
     "tokenization"
   ],
   "author": "SustainableFashionChain Team",
-  "license": "MIT"
+  "license": "MIT",
+  "overrides": {
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "^4.1.1"
+    }
+  }
 }

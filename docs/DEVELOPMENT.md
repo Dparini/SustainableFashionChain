@@ -117,3 +117,12 @@ Fabric/CA binaries and container images into ignored generated state. Keep ports
 7050–9051, 18546 and 18547 free. It refuses existing standard Fabric containers.
 The public API E2E suite additionally needs a continuously running API and bridge;
 it is separate from the fixture and Gateway integration harnesses in CI.
+
+## Targeted dependency compatibility
+
+The backend scopes a `js-yaml` 4 override to `@istanbuljs/load-nyc-config`.
+That loader uses the supported `load()` API; the newer parser removes the older
+argparse/sprintf-js dependency chain. A compatibility test loads a real YAML
+coverage configuration. This addresses [GHSA-hp3w-g68c-fv3c](https://github.com/advisories/GHSA-hp3w-g68c-fv3c)
+without downgrading Jest or suppressing advisories. Frontend lockfiles include
+source-map-js 1.2.2 for [GHSA-68fv-2mgg-jv7q](https://github.com/advisories/GHSA-68fv-2mgg-jv7q).

@@ -8,6 +8,23 @@ const os = require('node:os');
 
 const from = (dir) => createRequire(path.resolve(__dirname, '..', dir, 'package.json'));
 
+test('backend: coverage YAML config loads through the supported parser', async (t) => {
+  const rootRequire = from('fabric/application');
+  const jestRequire = createRequire(rootRequire.resolve('jest/package.json'));
+  const transformRequire = createRequire(jestRequire.resolve('@jest/core/package.json'));
+  const instrumentationRequire = createRequire(transformRequire.resolve('@jest/transform/package.json'));
+  const babelRequire = createRequire(instrumentationRequire.resolve('babel-plugin-istanbul'));
+  const { loadNycConfig } = babelRequire('@istanbuljs/load-nyc-config');
+  const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'sfc-nyc-'));
+  t.after(() => fs.rm(directory, { recursive: true, force: true }));
+  await fs.writeFile(path.join(directory, 'package.json'), '{}');
+  await fs.writeFile(path.join(directory, '.nycrc.yml'), 'all: true\nreporter:\n  - text\n  - lcov\nexclude:\n  - test/**\n');
+  const config = await loadNycConfig({ cwd: directory });
+  assert.equal(config.all, true);
+  assert.deepEqual(config.reporter, ['text', 'lcov']);
+  assert.deepEqual(config.exclude, ['test/**']);
+});
+
 test('backend: bcrypt hashes remain compatible with bcryptjs', async () => {
   const requirePackage = from('fabric/application');
   const bcrypt = requirePackage('bcrypt');
